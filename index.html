@@ -359,12 +359,13 @@ mark{background:var(--warn-soft);color:inherit;border-radius:3px;padding:0 1px;b
         <button type="button" class="chip" data-tf="den" aria-pressed="false">Denominación UT</button>
         <button type="button" class="chip" data-tf="pt" aria-pressed="false">Puesto de trabajo</button>
         <button type="button" class="chip" data-tf="def" aria-pressed="false">Def. Puesto Trabajo (empresa)</button>
+        <button type="button" class="chip" data-tf="hr" aria-pressed="false">Hoja de ruta</button>
         <button type="button" class="chip" data-tf="all" aria-pressed="false">Todos los campos</button>
       </div>
       <form id="tTermForm" class="termform"><input class="search" id="tq" type="search" placeholder="Ej.: bomba, bba" autocomplete="off" style="width:320px"><button class="btn primary" type="submit">Agregar</button></form>
       <div class="frow" id="tEmpRow" hidden><span class="flabel">Empresas</span><div class="chips" id="tEmp"></div></div>
       <div class="chips" id="tTerms"></div>
-      <div class="hint muted">Agrega términos uno a uno o separados por coma. Dentro de un mismo campo se suman (bomba <b>o</b> bba); entre campos distintos se cruzan (bomba <b>y</b> ubicación CHCO-FL-RMO). Puesto de trabajo busca por código: el puesto responsable y los puestos que ejecutan la hoja de ruta (por ejemplo CCOMXM28). Def. Puesto Trabajo busca en la descripción del puesto y en la empresa ejecutora (por ejemplo Ingenalse, SKF o Berliam), según la tabla de puestos de Flotación; al elegirlo puedes tocar una empresa de la lista.</div>
+      <div class="hint muted">Agrega términos uno a uno o separados por coma. Dentro de un mismo campo se suman (bomba <b>o</b> bba); entre campos distintos se cruzan (bomba <b>y</b> ubicación CHCO-FL-RMO). Puesto de trabajo busca por código: el puesto responsable y los puestos que ejecutan la hoja de ruta (por ejemplo CCOMXM28). Def. Puesto Trabajo busca en la descripción del puesto y en la empresa ejecutora (por ejemplo Ingenalse, SKF o Berliam), según la tabla de puestos de Flotación; al elegirlo puedes tocar una empresa de la lista. Hoja de ruta busca por grupo (82114 trae todos sus contadores), por grupo y contador (82114-1) o por el texto de la hoja.</div>
       <div class="frow"><span class="flabel">Status de la posición</span><div class="chips" id="tSt"></div></div>
       <div class="tools"><div id="tSum" class="sumbar"></div><div class="frow" style="gap:12px"><button class="linkbtn" type="button" id="tClear">Quitar búsqueda</button><button class="btn" type="button" id="tDl">Descargar resultados</button></div></div>
       <div id="tRes" class="dwrap"></div>
@@ -904,6 +905,7 @@ var Torre = (function () {
         defs: defs, hhExec: e ? e.hh : null, hhSem: Math.round(sem * 100) / 100,
         f: { txt: fold(p[P.txt] + ' · ' + p[P.ptxt] + ' · ' + (p[P.hdr] || '')), ut: fold(p[P.ut]), den: fold(p[P.den]),
           pt: fold([p[P.pto]].concat(ejec).join(' ')),
+          hr: fold(p[P.key] + ' · ' + (p[P.hdr] || '') + ' · ' + ((t.hojas && t.hojas[p[P.key]]) ? t.hojas[p[P.key]][0] : '')),
           def: fold(defs.concat(ejec.map(function (c) { var x = puesto(c); return x ? x[4] : ''; })).join(' · ')) },
         emps: ejec.map(function (c) { var x = puesto(c); return x ? x[4] : ''; }).filter(Boolean) };
     });
@@ -1513,15 +1515,22 @@ function renderTorre(){
 }
 
 /* ---------- Torre: buscador de planes ---------- */
-var TF={txt:'Txt plan',ut:'Ubicación',den:'Denominación',pt:'Puesto',def:'Def. puesto',all:'Todos'},tview='b',tField='txt',TS={terms:[],st:new Set()};
+var TF={txt:'Txt plan',ut:'Ubicación',den:'Denominación',pt:'Puesto',def:'Def. puesto',hr:'Hoja de ruta',all:'Todos'},tview='b',tField='txt',TS={terms:[],st:new Set()};
 try{var _ts=JSON.parse(localStorage.getItem('torreBusqueda')||'null');if(_ts&&Array.isArray(_ts.terms))TS.terms=_ts.terms.filter(function(x){return x&&TF[x.f]&&x.v})}catch(e){}
 function saveTS(){try{localStorage.setItem('torreBusqueda',JSON.stringify({terms:TS.terms}))}catch(e){}}
 var P_=Torre.P;
 function stOf(p){var s=p[P_.st]||'';return s==='ABIE'?'Activa':/PTBO/.test(s)?'Para borrar (PTBO)':/NOAC/.test(s)?'Inactiva (NOAC)':'Sin plan'}
+/* Hoja de ruta: "82114" = todos sus contadores; "82114-1" = solo ese; texto = busca en el nombre de la hoja */
+function hrNorm(v){var m=String(v).trim().match(/^0*(\d+)\s*(?:[-\s]\s*0*(\d+))?$/);return m?{g:m[1],c:m[2]||''}:null}
+function fHit(r,f,v){
+  if(f==='hr'){var n=hrNorm(v),k=String(r.p[P_.key]||'').split('-');if(n)return k[0]===n.g&&(!n.c||k[1]===n.c);return r.f.hr.indexOf(v)>=0}
+  if(f==='all')return r.f.txt.indexOf(v)>=0||r.f.ut.indexOf(v)>=0||r.f.den.indexOf(v)>=0||r.f.pt.indexOf(v)>=0||r.f.def.indexOf(v)>=0||fHit(r,'hr',v);
+  return r.f[f].indexOf(v)>=0;
+}
 function tMatch(r,skipSt){
   if(!skipSt&&TS.st.size&&!TS.st.has(stOf(r.p)))return false;
   var g={};TS.terms.forEach(function(x){(g[x.f]=g[x.f]||[]).push(x.v)});
-  return Object.keys(g).every(function(f){return g[f].some(function(v){return f==='all'?(r.f.txt.indexOf(v)>=0||r.f.ut.indexOf(v)>=0||r.f.den.indexOf(v)>=0||r.f.pt.indexOf(v)>=0||r.f.def.indexOf(v)>=0):r.f[f].indexOf(v)>=0})});
+  return Object.keys(g).every(function(f){return g[f].some(function(v){return fHit(r,f,v)})});
 }
 function hlT(txt,f){
   var out=esc(txt),ts=TS.terms.filter(function(x){return x.f===f||x.f==='all'}).map(function(x){return x.v});if(!ts.length||!txt)return out;
@@ -1534,11 +1543,11 @@ function renderSearch(){
   if(!torre)return;
   var all=Torre.searchRows(torre);
   document.querySelectorAll('[data-tf]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.tf===tField)});
-  $('tq').placeholder=tField==='ut'?'Ej.: CHCO-FL-RMO, BBA':tField==='den'?'Ej.: espesador, celda':tField==='pt'?'Ej.: CCOMXM28, CCOAXRMI':tField==='def'?'Ej.: ingenalse, skf, mecanico ext':'Ej.: bomba, bba';
+  $('tq').placeholder=tField==='hr'?'Ej.: 82114 o 82114-1, valvula musculo':tField==='ut'?'Ej.: CHCO-FL-RMO, BBA':tField==='den'?'Ej.: espesador, celda':tField==='pt'?'Ej.: CCOMXM28, CCOAXRMI':tField==='def'?'Ej.: ingenalse, skf, mecanico ext':'Ej.: bomba, bba';
   $('tEmpRow').hidden=tField!=='def';
   if(tField==='def'){var ec={};all.forEach(function(r){var seen={};r.emps.forEach(function(e){if(!seen[e]){seen[e]=1;ec[e]=(ec[e]||0)+1}})});
     $('tEmp').innerHTML=Object.keys(ec).sort(function(a,b){return ec[b]-ec[a]}).map(function(e){var on=TS.terms.some(function(x){return x.f==='def'&&x.v===Core.fold(e)});return'<button type="button" class="chip" data-temp="'+esc(e)+'" aria-pressed="'+on+'">'+esc(e)+'<span class="n">'+ec[e]+'</span></button>'}).join('')}
-  $('tTerms').innerHTML=TS.terms.map(function(x,i){var n=all.filter(function(r){return x.f==='all'?(r.f.txt+'|'+r.f.ut+'|'+r.f.den+'|'+r.f.pt+'|'+r.f.def).indexOf(x.v)>=0:r.f[x.f].indexOf(x.v)>=0}).length;
+  $('tTerms').innerHTML=TS.terms.map(function(x,i){var n=all.filter(function(r){return fHit(r,x.f,x.v)}).length;
     return'<button type="button" class="chip term tterm" data-tterm="'+i+'" aria-label="Quitar '+esc(x.v)+'"><b>'+TF[x.f]+'</b>'+esc(x.v)+'<span class="n">'+n+'</span><span class="x" aria-hidden="true">×</span></button>'}).join('');
   var base=all.filter(function(r){return tMatch(r,true)});
   $('tSt').innerHTML=['Activa','Inactiva (NOAC)','Para borrar (PTBO)','Sin plan'].map(function(s){var n=base.filter(function(r){return stOf(r.p)===s}).length;if(!n&&!TS.st.has(s))return'';return'<button type="button" class="chip" data-tst="'+esc(s)+'" aria-pressed="'+TS.st.has(s)+'">'+s+'<span class="n">'+n+'</span></button>'}).join('');
@@ -1549,10 +1558,10 @@ function renderSearch(){
   var LIM=400,abcC={E:'p-bad',A:'p-warn',M:'p-info',B:'p-none'},stC={'Activa':'p-ok','Inactiva (NOAC)':'p-warn','Para borrar (PTBO)':'p-bad','Sin plan':'p-none'};
   $('tRes').innerHTML=(rs.length>LIM?'<div class="hint muted" style="padding:8px 12px;margin:0">Mostrando '+LIM+' de '+fmt(rs.length,0)+' posiciones. La descarga incluye todas.</div>':'')+
     '<table class="d"><thead><tr><th>Plan</th><th>Status</th><th>Txt plan MT</th><th>Posición</th><th>Ubicación técnica</th><th>Denominación UT</th><th>ABC</th><th>Pto. resp.</th><th>Puesto de trabajo (ejecutor)</th><th>Hoja de ruta</th><th>Ciclo</th><th>HH por ejecución</th><th>HH/sem</th><th>Última OT</th></tr></thead><tbody>'+
-    rs.slice(0,LIM).map(function(r){var p=r.p,s=stOf(p);return'<tr><td class="mono">'+esc(p[P_.plan]||'—')+'</td><td><span class="pill '+stC[s]+'">'+s+'</span></td><td>'+hlT(p[P_.txt],'txt')+'</td><td>'+hlT(p[P_.ptxt],'txt')+'</td><td class="mono">'+hlT(p[P_.ut],'ut')+'</td><td>'+hlT(p[P_.den],'den')+'</td><td>'+(p[P_.abc]?'<span class="pill '+(abcC[p[P_.abc]]||'p-none')+'">'+esc(p[P_.abc])+'</span>':'')+'</td><td class="mono">'+hlT(p[P_.pto],'pt')+'</td><td>'+(r.ejec.length?r.ejec.map(function(c,i){return'<span class="mono">'+hlT(c,'pt')+'</span>'+(r.defs[i]?'<br><span class="muted" style="font-size:11.5px">'+hlT(r.defs[i],'def')+(r.emps[i]?' · '+hlT(r.emps[i],'def'):'')+'</span>':'<br><span class="pill p-warn" style="font-size:10.5px">sin descripción</span>')}).join('<br>'):'—')+'</td><td class="mono">'+esc(p[P_.key])+'</td><td>'+esc(p[P_.ctx])+'</td><td class="n">'+(r.hhExec==null?'—':fmt(r.hhExec,1))+'</td><td class="n">'+fmt(r.hhSem,2)+'</td><td class="mono">'+(p[P_.ot]?esc(p[P_.ult]):'<span class="pill p-warn">Nunca</span>')+'</td></tr>'}).join('')+'</tbody></table>';
+    rs.slice(0,LIM).map(function(r){var p=r.p,s=stOf(p);return'<tr><td class="mono">'+esc(p[P_.plan]||'—')+'</td><td><span class="pill '+stC[s]+'">'+s+'</span></td><td>'+hlT(p[P_.txt],'txt')+'</td><td>'+hlT(p[P_.ptxt],'txt')+'</td><td class="mono">'+hlT(p[P_.ut],'ut')+'</td><td>'+hlT(p[P_.den],'den')+'</td><td>'+(p[P_.abc]?'<span class="pill '+(abcC[p[P_.abc]]||'p-none')+'">'+esc(p[P_.abc])+'</span>':'')+'</td><td class="mono">'+hlT(p[P_.pto],'pt')+'</td><td>'+(r.ejec.length?r.ejec.map(function(c,i){return'<span class="mono">'+hlT(c,'pt')+'</span>'+(r.defs[i]?'<br><span class="muted" style="font-size:11.5px">'+hlT(r.defs[i],'def')+(r.emps[i]?' · '+hlT(r.emps[i],'def'):'')+'</span>':'<br><span class="pill p-warn" style="font-size:10.5px">sin descripción</span>')}).join('<br>'):'—')+'</td><td class="mono">'+hlT(p[P_.key],'hr')+'</td><td>'+esc(p[P_.ctx])+'</td><td class="n">'+(r.hhExec==null?'—':fmt(r.hhExec,1))+'</td><td class="n">'+fmt(r.hhSem,2)+'</td><td class="mono">'+(p[P_.ot]?esc(p[P_.ult]):'<span class="pill p-warn">Nunca</span>')+'</td></tr>'}).join('')+'</tbody></table>';
 }
 $('tTermForm').addEventListener('submit',function(e){e.preventDefault();
-  $('tq').value.split(/[,;]+/).forEach(function(p){var v=Core.fold(p).trim();if(v&&!TS.terms.some(function(x){return x.f===tField&&x.v===v}))TS.terms.push({f:tField,v:v})});
+  $('tq').value.split(/[,;]+/).forEach(function(p){var v=Core.fold(p).trim();if(tField==='hr'){var hn=hrNorm(v);if(hn)v=hn.g+(hn.c?'-'+hn.c:'')}if(v&&!TS.terms.some(function(x){return x.f===tField&&x.v===v}))TS.terms.push({f:tField,v:v})});
   $('tq').value='';saveTS();renderSearch()});
 $('tClear').addEventListener('click',function(){TS.terms=[];TS.st.clear();saveTS();renderSearch()});
 document.addEventListener('click',function(e){var t;
