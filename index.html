@@ -197,6 +197,11 @@ details.dq .rtab{padding:0 12px 12px}
 .tview{align-self:flex-start}
 .sfields{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .chip.tterm b{font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.txbox{margin:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.txslots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.okmsg{margin:0 14px 14px;font-size:13px;color:var(--ok);background:var(--ok-soft);border-radius:7px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.okmsg b{color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 @media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
 .badge{display:inline-block;margin-left:6px;min-width:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:var(--surface);font-size:11px;line-height:18px;text-align:center;font-family:var(--f-mono)}
@@ -374,11 +379,16 @@ mark{background:var(--warn-soft);color:inherit;border-radius:3px;padding:0 1px;b
     <section class="panel" aria-label="Cargar Torre de control">
       <div class="drop" id="tdrop" tabindex="0" role="button" aria-label="Cargar Torre de control">
         <strong>Cargar una Torre de control</strong>
-        <span class="muted">Arrastra el Excel de la Torre (por ejemplo Torre_de_control_2026S42_FRA.xlsx). Se leen las hojas IH06, IP18, IP16, IA10 y OTs. La semana se toma del nombre del archivo.</span>
+        <span class="muted">Arrastra el Excel de una Torre ya armada (por ejemplo Torre de control 2026S45 FRA.xlsx) <b>o las transacciones de SAP</b>: IH06, IP16, IP18, IA10, IW38 y MAF, juntas o de a una. Con las transacciones la página arma la Torre, actualiza el dashboard y te deja descargar el Excel. La semana se toma del nombre del archivo o, si no lo trae, de la semana actual.</span>
         <span><button class="btn primary" id="tpick" type="button">Seleccionar archivo</button></span>
-        <input type="file" id="tfile" accept=".xlsx,.xlsm,.xls" hidden>
+        <input type="file" id="tfile" accept=".xlsx,.xlsm,.xls" multiple hidden>
       </div>
       <div id="tmsg"></div>
+      <div id="txBox" class="txbox" hidden>
+        <span class="eyebrow">Transacciones para armar la Torre</span>
+        <div class="txslots" id="txSlots"></div>
+        <div class="frow" style="gap:10px"><button class="btn primary" type="button" id="txBuild" disabled>Armar Torre</button><button class="linkbtn" type="button" id="txClear">Quitar transacciones</button></div>
+      </div>
     </section>
   </div>
 
@@ -932,6 +942,140 @@ var Torre = (function () {
 })();
 
 
+/* ===== Torre de control desde transacciones SAP (IH06, IP16, IP18, IA10, MAF, IW38) ===== */
+var TorreTx = (function () {
+  var DATOS = [[null, null, null, null, null, null, null, "A", null, "b", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, "Priorización", null, null, "Tipo Objeto", null, null, "Texto Ciclo", "Cant", "Und", null, "Pto Tbjo", "Estado", "Respons.", "Tp.", "Descripción", "Empresa-Ejecutor", "Proceso ", null, "Tipo U. T.", null, null, "Norma Liq.", null], [null, null, "--", null, null, "--", null, "1 MES", 4, "Semanas", null, "CCOMPE01", "Actual", "CO2", 3, "MANT INT ELECTRICO CONC A2-A3", "Codelco Electricista", "Molienda SAG ", null, "A", "Apoyo", null, "CM225", "FL"], [null, "A", "Alta", null, "ACAI", "Acumulador de Aire", null, "12 MESES", 52, "Semanas", null, "CCOMPE02", "Actual", "C95", 3, "MANT INT ELECTRICO CONC A0-A1-FRA", "Codelco Electricista", "Molienda Convencional", null, "D", "Desarrollo", null, "CM213", "RDA"], [null, "B", "Baja", null, "AGIT", "Agitador", null, "15 DIAS", 2, "Semanas", null, "CCOMPE03", "Actual", "C95", 3, "MANT INT ELECTRICO CONC GUARDIA", "Codelco Electricista", "Transversal", null, "I", "Infraestructura", null, "CM215", "RMO"], [null, "E", "Esencial", null, "BOCE", "Bombas Centrifugas", null, "16 Meses", 64, "Semanas", null, "CCOMPE04", "Actual", "CML", 3, "MANTTO INT. ELECTRICO MOFI", "Codelco Electricista", "MOFI", null, "L", "Estructura Lineal", null, "CM211", "ELEC"], [null, "M", "Media", null, "CANL", "Canal", null, "2 MESES", 8, "Semanas", null, "CCOMPE07", "Actual", "C10", 5, "MANT INT ELECTRICO CHANC PRIMARIO", "Codelco Electricista", "Chancado 1°", null, "N", "Unidad No Mantenible", null, "CM139", "INST"], [null, null, null, null, "CELD", "Banco Celda Flotación", null, "2 SEMANA", 2, "Semanas", null, "CCOMPE06", "Actual", "COC", 3, "MANT INT ELECTRICO CHANC SEC Y TERC", "Codelco Electricista", "Chancado 2°3°", null, "P", "Producción", null, null, null], [null, null, null, null, "CHUT", "Chute", null, "24 MESES", 96, "Semanas", null, "CCOMPI02", "Actual", "C10", 3, "MANT INT ELECTRONICO CHANC PRIMARIO", "Codelco Electronico", "Chancado 1°", null, "S", "Emplazamiento de Cliente", null, null, null], [null, null, null, null, "CIRE", "Circuito Eléctrico", null, "3 MESES", 12, "Semanas", null, "CCOMPI09", "Actual", "COC", 3, "MANT INT ELECTRONICO CHANC SEC Y TERC", "Codelco Electronico", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "COMP", "Compresor", null, "3 SEMANA", 3, "Semanas", null, "CCOMPM01", "Actual", "C95", 3, "MANT INT MECANICO CONC A2-A3", "Codelco Mecanico", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "CORR", "Correa Transportadora", null, "30 DIAS", 4, "Semanas", null, "CCOMPM02", "Actual", "C95", 3, "MANT INT MECANICO CONC A0-A1", "Codelco Mecanico", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "EJED", "Eje Diferencial", null, "4 MESES", 16, "Semanas", null, "CCOMPM03", "Actual", "CFL", 3, "MANT INT MECANICA RECUP AGUA", "Codelco Mecanico", "FRA", null, null, null, null, null, null], [null, null, null, null, "ESPA", "Maq. Espaciadoras Anodo", null, "4 SEMANA", 4, "Semanas", null, "CCOMPM04", "Actual", "CFL", 3, "MANT INT MECÁNICA FLOT-REMO", "Codelco Mecanico", "FRA", null, null, null, null, null, null], [null, null, null, null, "ESTA", "Estanque", null, "5 Meses", 20, "Semanas", null, "CCOMPM05", "Actual", "CML", 3, "MANT INT MECÁNICO MOLIBDENO", "Codelco Mecanico", "MOFI", null, null, null, null, null, null], [null, null, null, null, "ESTR", "Estructura", null, "5 SEMANA", 5, "Semanas", null, "CCOMPM06", "Actual", "CFT", 3, "MANT INT MECÁNICA FILTROS", "Codelco Mecanico", "MOFI", null, null, null, null, null, null], [null, null, null, null, "FILT", "Filtro", null, "6 MESES", 24, "Semanas", null, "CCOMPM07", "Actual", "COC", 3, "MANT INT MEC/LUBRI CHANC SEC Y TERC", "Codelco Mecanico", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "GRUP", "Grúa Puente", null, "6 SEMANA", 6, "Semanas", null, "CCOMPM08", "Actual", "C95", 3, "MANT INT MECANICO CONC GUARDIA", "Codelco Mecanico", "Transversal", null, null, null, null, null, null], [null, null, null, null, "HICL", "Hidrociclón", null, "Cada 12 semanas", 12, "Semanas", null, "CCOMPM09", "Actual", "C10", 3, "MANT INT MECANICO CHANCADO PRIMARIO", "Codelco Mecanico", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "INCO", "Instrumentos de Control", null, "Cada 14000 horas de Actividad", 14000, "Hrs.", null, "CCOMPM10", "Actual", "C10", 3, "MTTO INT OLEHIDRAULICO CHP", "Codelco Mecanico", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "LIAG", "Líneas de Agua", null, "cada 16 semanas", 16, "Semanas", null, "CCOMXE15", "Actual", "C95", 3, "MANT ELECT/INST EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "LIAI", "Líneas de Aire", null, "Cada 2.000.000 Toneladas", 2, "kT", null, "CCOMXE16", "Actual", "C95", 3, "MANT ELECT/INST EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "LISO", "Líneas de Solucuión", null, "Cada 2.400.000 Toneladas", 2.4, "kT", null, "CCOMXE17", "Actual", "C95", 3, "MANT ELEC/ELECTR EXT. CH 2/3 CONC", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "MOBO", "Molinos de Bolas", null, "Cada 3.000.000 Toneladas", 3, "kT", null, "CCOMXE18", "Actual", "C95", 3, "MANT EXT INTEGRAL ELECT/ELECTR CONC.", "Salfa Integral", "Transversal", null, null, null, null, null, null], [null, null, null, null, "MOGE", "Motor Generar Eléctrico", null, "cada 52 semanas", 52, "Semanas", null, "CCOMXE19", "Actual", "C95", 3, "MANT ELEC/ELECTR EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "MONO", "Monoriel", null, "MANT. C/ SEMANA", 1, "Semanas", null, "CCOMXE15", "Actual", "COC", 3, "MANT ELEC/ELECTR EXT. CAPTADORES", "Pimasa", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "MOTE", "Motor Eléctrico", null, "MANT. C/1 SEMANA", 1, "Semanas", null, "CCOMXI04", "Actual", "CO2", 3, "MANT EXT INSTRUMENTACION  A2/A3/A0/A1/FR", "Sigma Instrumentación", "Transversal", null, null, null, null, null, null], [null, null, null, null, "POLE", "Poleas", null, "MANT. C/2 MESES (BIMENSUAL)", 8, "Semanas", null, "CCOMXI05", "Actual", "C95", 3, "MANT EXT INSTRUMENTACION  CHANC S-T", "Sigma Instrumentación", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "SAEL", "Sala Eléctrica", null, "MANT. C/32 SEMANAS", 32, "Semanas", null, "CCOMXI06", "Actual", "C95", 3, "MANT EXT INSTRUMENTACION  CONC MOLYFILT", "Sigma Instrumentación", "MOFI", null, null, null, null, null, null], [null, null, null, null, "SECA", "Secador", null, "MANT. C/4 SEMANAS (MENSUAL)", 4, "Semanas", null, "CCOMXI07", "Actual", "C10", 3, "MANT EXT INSTRUMENTACION  CHP", "Sigma Instrumentación", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "SOPL", "Sopladores", null, "MANT. C/52 SEMANAS", 52, "Semanas", null, "CCOMXL48", "Actual", "C95", 3, "MANT EXT OLEHIDRAULICO CONC. SALFA", "Salfa Hidraulico", "Transversal", null, null, null, null, null, null], [null, null, null, null, "TECL", "Tecles", null, "Mantención c/1 Año", 52, "Semanas", null, "CCOMXL29", "Actual", "C95", 3, "MANT ASEO IND. EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "VALV", "Válvula", null, "Mantención c/1 Mes", 4, "Semanas", null, "CCOMXL30", "Actual", "C95", 3, "MANT LUBRICACION EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "BOMR", "BOMBA PREP. REACTIVO", null, "Mantención c/1 Quincena", 2, "Semanas", null, "CCOMXL31", "Actual", "C95", 3, "MANT ASEO IND. EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "HCON", "HORNO CONVERTIDOR", null, "Mantención c/1 Semana", 1, "Semanas", null, "CCOMXL32", "Actual", "C95", 3, "MANT LUBRICACION EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "CAGC", "CAMPANA COLECTORA GA", null, "Mantención c/10 Meses", 40, "Semanas", null, "CCOMXL33", "Actual", "C95", 3, "MANT ASEO IND. EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "DUGA", "DUCTOS DE GAS", null, "Mantención c/14 Meses", 56, "Semanas", null, "CCOMXL34", "Actual", "C95", 3, "MANT LUBRIC. EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "ELCA", "ELEVADOR DE CAPACHOS", null, "Mantención c/18 Meses", 72, "Semanas", null, "CCOMXL35", "Actual", "C95", 3, "PROYECTO OPERACIONAL MONTAJES QUINTANA", "Montaje Quintana", "Transversal", null, null, null, null, null, null], [null, null, null, null, "RAST", "RASTRA", null, "Mantención c/2 Años", 96, "Semanas", null, "CCOMXL36", "Actual", "C95", 3, "PROYECTO OPERACIONAL INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "GUIL", "GUILLOTINA", null, "Mantención c/2 Meses", 8, "Semanas", null, "CCOMXL37", "Actual", "C95", 3, "MANT EXT HIDRAULICO CH23 CONC.", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "CUMO", "CULATA", null, "Mantención c/2 Semanas", 2, "Semanas", null, "CCOMXL38", "Actual", "C95", 3, "MANT SINT. PREDICTIVO EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, "MAGA", "MAQ. GASPE", null, "Mantención c/3 Años", 156, "Semanas", null, "CCOMXL39", "Actual", "C95", 3, "MANT LUBR/HIDR   EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "MURO", "MURO DE CONTENCION", null, "Mantención c/3 Meses", 12, "Semanas", null, "CCOMXL40", "Actual", "C95", 3, "MANT CINTAS TRAN EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "PLAT", "PLATAFORMA", null, "Mantención c/3 Semanas", 3, "Semanas", null, "CCOMXL41", "Actual", "C95", 3, "Mant. Ext. Rep. Reconst.Fundaciones CONC", "Pucara", "Transversal", null, null, null, null, null, null], [null, null, null, null, "RECA", "CARRO REPARTIDOR CAR", null, "Mantención c/4 Años", 208, "Semanas", null, "CCOMXL42", "Actual", "C95", 3, "MANT ASEO EXT A0/A1 SCHWAGER", "Schwager", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "REDU", "REDUCTOR DE VELOCIDA", null, "Mantención c/4 Meses", 16, "Semanas", null, "CCOMXL43", "Actual", "C95", 3, "MANT LUBRICACION EXT A0/A1 SCHWAGER", "Schwager", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "JUEX", "JUNTA DE EXPANSION", null, "Mantención c/4 Semanas", 4, "Semanas", null, "CCOMXL44", "Actual", "C95", 3, "MANT ASEO        EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "OMFU", "OLLA MATERIAL FUNDID", null, "Mantención c/5 Meses", 20, "Semanas", null, "CCOMXL45", "Actual", "C95", 3, "MANT LUBRICACION EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "LIVA", "LINEA DE VAPOR", null, "Mantención c/6 Meses", 24, "Semanas", null, "CCOMXL46", "Actual", "C95", 3, "MANT SINT. MEC / ESTRUC.  EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, "GENE", "GENERADOR ELECTRICO", null, "Mantención c/6 Semanas", 6, "Semanas", null, "CCOMXL47", "Actual", "C95", 3, "MANT SINT. SIST.TR.MINERAL EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, "ALUM", "ALUMBRADO ELECTRICO", null, "Mantención c/7 Semanas", 7, "Semanas", null, "CCOMXM35", "Actual", "C95", 3, "MANT EXT MECANICO CONC CAINSA", "Cainsa", "Transversal", null, null, null, null, null, null], [null, null, null, null, "ACOA", "ACONDICIONADOR DE AI", null, "Mantención c/8 Meses", 32, "Semanas", null, "CCOMXM27", "Actual", "C95", 3, "MANT MECANICO EXT MOFI SALFA", "Salfa", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "SWGR", "SWITCHGEAR", null, "Mantención c/8 Semanas", 8, "Semanas", null, "CCOMXM28", "Actual", "C95", 3, "MANT MECANICO EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "SSEE", "SUBEST. ELECTRICA", null, "Mantención c/9 Meses", 36, "Semanas", null, "CCOMXM29", "Actual", "C95", 3, "MANT MECANICO EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "BADE", "BARRA DISTRIB. ELECT", null, "MANTENCION CADA 4 MESES", 16, "Semanas", null, "CCOMXM30", "Actual", "C95", 3, "MANT MECANICO    EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "DESC", "DESCONECTOR", null, "MANTENCION MENSUAL", 4, "Semanas", null, "CCOMXM31", "Actual", "C95", 3, "MANT MECANICO EXT A0/A1 METSO", "Metso", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "INPO", "INTERRUPTOR DE PODER", null, "MANTENCION TRIMESTRAL", 12, "Semanas", null, "CCOMXM36", "Actual", "C95", 3, "MANT MECANICO EXT TRANSITORIO (MGA)", "Transitorio", "Transitorio", null, null, null, null, null, null], [null, null, null, null, "TRAF", "TRANSFORMADOR ELECTR", null, "MTTO CADA 11 SEMANAS", 11, "Semanas", null, "CCOMXM32", "Actual", "C95", 3, "MANT MECANICO EXT. ESPESADORES CONC", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "ALZA", "ALZA GRUA", null, "MTTO CADA 12 SEMANAS", 12, "Semanas", null, "CCOMXM33", "Actual", "C95", 3, "MANT MECANICO EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "PREP", "PRECIP ELECTRO POLVO", null, "MTTO CADA 13 SEMANAS", 13, "Semanas", null, "CCOMXM34", "Actual", "C95", 3, "MANT EXT CHANCADORES CH23 CONC.", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "POBO", "POZO DE BOMBAS", null, "MTTO CADA 1500 HORAS", 1500, "Hrs.", null, "CCOMXM24", "Actual", "C95", 3, "MANT MECANICO EXT. RASPADORES", "Contitech", "Transversal", null, null, null, null, null, null], [null, null, null, null, "TOLG", "TOLVA", null, "MTTO CADA 16 SEMANAS", 16, "Semanas", null, "CCOMXM25", "Actual", "C95", 3, "MANT MECANICO EXT. CAPTADORES", "Pimasa", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "VENT", "VENTILADOR", null, "MTTO CADA 1750 HORAS", 1750, "Hrs.", null, "CCOMXM26", "Actual", "C95", 3, "MTTO EXTERNO TTM CORREAS CH 2-3", "TTM Correas", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "DAMP", "DAMPER", null, "MTTO CADA 2 SEMANAS", 2, "Semanas", null, "CCOMXM40", "Actual", "C95", 3, "MANT MECANICO EXT FRA_BERLIAM", "Berliam", "FRA", null, null, null, null, null, null], [null, null, null, null, "TRAT", "TRANSP.TORNILLO SIN", null, "MTTO CADA 22 SEMANAS", 22, "Semanas", null, "CCOMPN01", "Actual", "C95", 3, "MANT INT INSPECTOR MEC CONCENTRADORA", "Codelco Inspeccion", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "TNEU", "TRANSPORTE NEUMATICO", null, "MTTO CADA 24 SEMANAS", 24, "Semanas", null, "CCOMPN02", "Actual", "C95", 3, "MANT INT INSPECTOR ELEC CONCENTRADORA", "Codelco Inspeccion", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "CHIM", "CHIMENEA", null, "MTTO CADA 25 SEMANAS", 25, "Semanas", null, "CCOMPN03", "Actual", "CO0", 3, "INSP INT MEC CONC A0-A1", "Codelco Inspeccion", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "VASO", "VASO PRESURIZADO", null, "MTTO CADA 26 SEMANAS", 26, "Semanas", null, "CCOMPN04", "Actual", "CO0", 3, "INSP INT ELEC CONC A0-A1-FRA", "Codelco Inspeccion", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "RECE", "RECTIFICADOR ESTATIC", null, "MTTO CADA 3 SEMANAS", 3, "Semanas", null, "CCOMPN05", "Actual", "CFL", 3, "INSP INT MECÁNICA FLOT-REMO-RDA", "Codelco Inspeccion", "FRA", null, null, null, null, null, null], [null, null, null, null, "CABI", "CABINA", null, "MTTO CADA 3000 HORAS", 3000, "Hrs.", null, "CCOMPN06", "Actual", "CML", 3, "INSP INT MECANICA MOLY-FILT", "Codelco Inspeccion", "MOFI", null, null, null, null, null, null], [null, null, null, null, "POSU", "POLEA SUPERIOR CONTR", null, "MTTO CADA 34 SEMANAS", 34, "Semanas", null, "CCOMPN07", "Actual", "CML", 3, "INSP INT ELECTRICA MOLY-FILT", "Codelco Inspeccion", "MOFI", null, null, null, null, null, null], [null, null, null, null, "DRUM", "TAMBOR", null, "MTTO CADA 3500 HORAS", 3500, "Hrs.", null, "CCOMPN09", "Actual", "COC", 3, "MANT INT INSP ELEC CHANC SEC Y TERC", "Codelco Inspeccion", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "CAAR", "CARRO DE ARRASTRE", null, "MTTO CADA 4 SEMANAS", 4, "Semanas", null, "CCOMPN10", "Actual", "C10", 3, "ING. MANTENCION CHP", "Codelco Inspeccion", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "QUCO", "QUEMADOR CONCENT. CU", null, "MTTO CADA 44 SEMANAS", 44, "Semanas", null, "CCOMXN05", "Actual", "COC", 3, "MANT INSPECCION  EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "HOFL", "HORNO FLASH", null, "MTTO CADA 48 SEMANAS", 52, "Semanas", null, "CCOMXN06", "Actual", "CML", 3, "MANT INSPECCION EXT MOFI", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "CTRA", "CAJA DE TRANSMISION", null, "MTTO CADA 5 SEMANAS", 5, "Semanas", null, "CCOMPE05", "Antiguo", "C10", 5, "MANT INT ELECTRICO CHANC PRIMARIO", "Codelco Electricista", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "TUVA", "TURBINA A VAPOR", null, "MTTO CADA 52 SEMANAS", 52, "Semanas", null, "CCOMPI01", "Antiguo", "C10", 3, "MANT INT ELECTRONICO CHANC PRIMARIO", "Codelco Electronico", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "TBBA", "TURBOBOMBA", null, "MTTO CADA 600 HORAS", 600, "Hrs.", null, "CCOMPI08", "Antiguo", "COC", 3, "MANT INT ELECTRONICO CHANC SEC Y TERC", "Codelco Electronico", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "CALD", "CALDERAS", null, "MTTO CADA 6000 HORAS", 6000, "Hrs.", null, "CCOMXE06", "Antiguo", "C95", 3, "MANT ELECT/INST EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "MAGO", "MARTILLO GOLPEADOR", null, "MTTO CADA 700 HORAS", 700, "Hrs.", null, "CCOMXE08", "Antiguo", "C95", 3, "MANT ELECT/INST EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "AISL", "AISLADOR ELECTRICO", null, "MTTO CADA 7000 HORAS", 7000, "Hrs.", null, "CCOMXE09", "Antiguo", "C95", 3, "MANT ELEC/ELECTR EXT. CH 2/3 CONC", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "QUOX", "QUEMADOR OXIPETROLEO", null, "MTTO CADA 8 SEMANAS", 8, "Semanas", null, "CCOMXE10", "Antiguo", "C95", 3, "MANT EXT INTEGRAL ELECT/ELECTR CONC.", "Salfa Integral", "Transversal", null, null, null, null, null, null], [null, null, null, null, "CHAR", "CHANCADOR A RODILLOS", null, "MTTO SEMANAL", 1, "Semanas", null, "CCOMXE13", "Antiguo", "C95", 3, "MANT ELEC/ELECTR EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "MODI", "MOTORES DIESEL", null, "9 SEMANA", 9, "Semanas", null, "CCOMXE14", "Antiguo", "COC", 3, "MANT ELEC/ELECTR EXT. CAPTADORES", "Pimasa", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "HORE", "HORNO DE REFINO", null, "MTTO CADA 9 SEMANAS", 9, "Semanas", null, "CCOMXI01", "Antiguo", "CO2", 3, "MANT EXT INSTRUMENTACION  A2/A3/A0/A1/FR", "Sigma Instrumentación", "Transversal", null, null, null, null, null, null], [null, null, null, null, "INCA", "INTERCAMBIADOR DE CA", null, "MTTO CADA 38 SEMANAS", 38, "Semanas", null, "CCOMXI02", "Antiguo", "C95", 3, "MANT EXT INSTRUMENTACION  CHANC S-T", "Sigma Instrumentación", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "ALIM", "ALIMENTADOR DE MINER", null, "Mantención c/26 Semanas", 26, "Semanas", null, "CCOMXI03", "Antiguo", "C95", 3, "MANT EXT INSTRUMENTACION  CONC MOLYFILT", "Sigma Instrumentación", "MOFI", null, null, null, null, null, null], [null, null, null, null, "BATE", "BANCO DE BATERIAS", null, "Mantención c/24 Semanas", 24, "Semanas", null, "CCOMXL07", "Antiguo", "C95", 3, "MANT EXT OLEHIDRAULICO CONC. SALFA", "Salfa Hidraulico", "Transversal", null, null, null, null, null, null], [null, null, null, null, "MOHI", "MOTOR HIDRAULICO", null, "Mantención c/5 Semanas", 5, "Semanas", null, "CCOMXL08", "Antiguo", "C95", 3, "MANT ASEO IND. EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "EDIF", "EDIFICIO", null, "Mantención c/208 Semanas", 208, "Semanas", null, "CCOMXL09", "Antiguo", "C95", 3, "MANT LUBRICACION EXT MOFI SALFA", "Salfa", "MOFI", null, null, null, null, null, null], [null, null, null, null, "EQPE", "EQUIPO DE PESAJE", null, "Mantención c/13 Semanas", 13, "Semanas", null, "CCOMXL12", "Antiguo", "C95", 3, "MANT ASEO IND. EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "HARN", "HARNERO", null, "MTTO CADA 12000 HORAS", 12000, "Hrs.", null, "CCOMXL13", "Antiguo", "C95", 3, "MANT LUBRICACION EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "CUCH", "CUCHARA DE COLADA", null, "MTTO CADA 78 SEMANAS", 78, "Semanas", null, "CCOMXL14", "Antiguo", "C95", 3, "MANT ASEO IND. EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "BUZO", "BUZON", null, "1 Semana", 1, "Semanas", null, "CCOMXL15", "Antiguo", "C95", 3, "MANT LUBRIC. EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, "BOAP", "BOMBAS ALTA PRESION", null, "12 Semanas", 12, "Semanas", null, "CCOMXL16", "Antiguo", "C95", 3, "PROYECTO OPERACIONAL MONTAJES QUINTANA", "Montaje Quintana", "Transversal", null, null, null, null, null, null], [null, null, null, null, "CHAP", "CHANCADOR PRIMARIO", null, "120 CICLOS", 120, "Ciclos", null, "CCOMXL17", "Antiguo", "C95", 3, "PROYECTO OPERACIONAL INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, "RUEM", "RUEDA DE MOLDEO", null, "120 SEMANAS", 120, "Semanas", null, "CCOMXL18", "Antiguo", "C95", 3, "MANT EXT HIDRAULICO CH23 CONC.", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "BOVA", "BOMBA DE VACIO", null, "144 SEMANAS", 144, "Semanas", null, "CCOMXL19", "Antiguo", "C95", 3, "MANT SINT. PREDICTIVO EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, "DOBL", "DOBLADORA PLANCHAS Y", null, "16 Semanas", 16, "Semanas", null, "CCOMXL20", "Antiguo", "C95", 3, "MANT LUBR/HIDR   EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "BALD", "BALDE", null, "176000 TON", 176000, "Ton.", null, "CCOMXL21", "Antiguo", "C95", 3, "MANT CINTAS TRAN EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "CATG", "CARRO TRANSFERENCIA", null, "18 Semanas", 18, "Semanas", null, "CCOMXL22", "Antiguo", "C95", 3, "Mant. Ext. Rep. Reconst.Fundaciones CONC", "Pucara", "Transversal", null, null, null, null, null, null], [null, null, null, null, "CATE", "CAMION TRANSPORTE ES", null, "192 SEMANAS", 192, "Semanas", null, "CCOMXL23", "Antiguo", "C95", 3, "MANT ASEO EXT A0/A1 SCHWAGER", "Schwager", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "EVAP", "EVAPORADOR", null, "2 Semanas", 2, "Semanas", null, "CCOMXL24", "Antiguo", "C95", 3, "MANT LUBRICACION EXT A0/A1 SCHWAGER", "Schwager", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, "BODE", "BOMBA DE DESPLAZA +", null, "20 DIAS", 3, "Semanas", null, "CCOMXL25", "Antiguo", "C95", 3, "MANT ASEO        EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, "TOEN", "TORRE DE ENFRIAMIENT", null, "22000 TON", 22000, "Ton.", null, "CCOMXL26", "Antiguo", "C95", 3, "MANT LUBRICACION EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, "PURI", "PURIFICADOR", null, "225 CICLOS", 225, "Ciclos", null, "CCOMXL27", "Antiguo", "C95", 3, "MANT SINT. MEC / ESTRUC.  EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, null, null, null, "24 Semanas", 24, "Semanas", null, "CCOMXL28", "Antiguo", "C95", 3, "MANT SINT. SIST.TR.MINERAL EXT CONC", "SKF", "Transversal", null, null, null, null, null, null], [null, null, null, null, null, null, null, "240 SEMANAS", 240, "Semanas", null, "CCOMXM03", "Antiguo", "C95", 3, "MANT EXT MECANICO CONC CAINSA", "Cainsa", "Transversal", null, null, null, null, null, null], [null, null, null, null, null, null, null, "280 CICLOS", 160, "Ciclos", null, "CCOMXM11", "Antiguo", "C95", 3, "MANT MECANICO EXT MOFI SALFA", "Salfa", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, null, null, null, "3 Semanas", 3, "Semanas", null, "CCOMXM13", "Antiguo", "C95", 3, "MANT MECANICO EXT FRA INGENALSE", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, null, null, null, "330 CICLOS", 330, "Ciclos", null, "CCOMXM14", "Antiguo", "C95", 3, "MANT MECANICO EXT MOLIENDA BERLIAM", "Berliam", "Molienda SAG ", null, null, null, null, null, null], [null, null, null, null, null, null, null, "33000 TON", 33000, "Ciclos", null, "CCOMXM17", "Antiguo", "C95", 3, "MANT MECANICO    EXT. CH 2/3 CONC", "Nexxo", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, null, null, null, "4 Semanas", 4, "Semanas", null, "CCOMXM18", "Antiguo", "C95", 3, "MANT MECANICO EXT A0/A1 METSO", "Metso", "Molienda Convencional", null, null, null, null, null, null], [null, null, null, null, null, null, null, "44000 TON", 44000, "Ton.", null, "CCOMXM19", "Antiguo", "C95", 3, "MANT MECANICO EXT TRANSITORIO (MGA)", "Transitorio", "Transitorio", null, null, null, null, null, null], [null, null, null, null, null, null, null, "48 Semanas", 48, "Semanas", null, "CCOMXM20", "Antiguo", "C95", 3, "MANT MECANICO EXT. ESPESADORES CONC", "Ingenalse", "FRA", null, null, null, null, null, null], [null, null, null, null, null, null, null, "6 Semanas", 6, "Semanas", null, "CCOMXM21", "Antiguo", "C95", 3, "MANT MECANICO EXT. CHANCADO PRIMARIO", "Schwager", "Chancado 1°", null, null, null, null, null, null], [null, null, null, null, null, null, null, "70 CICLOS", 70, "Ciclos", null, "CCOMXM23", "Antiguo", "C95", 3, "MANT EXT CHANCADORES CH23 CONC.", "Metso", "Chancado 2°3°", null, null, null, null, null, null], [null, null, null, null, null, null, null, "72 SEMANAS", 72, "Semanas", null, "CCOA0RMM", "P.T. Resp.", "CO0", 5, "MANT & PLANIF MEC CONC MOLIENDA A0", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "8 SEMANAS", 8, "Semanas", null, "CCOA1RMM", "P.T. Resp.", "CO1", 5, "MANT & PLANIF MEC CONC MOLIENDA A1", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "88000 TON", 88000, "Ton.", null, "CCOA2RMM", "P.T. Resp.", "CO2", 5, "MANT & PLANIF MEC CONC MOLIENDA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "9 semanas", 9, "Semanas", null, "CCOA2RMQ", "P.T. Resp.", "CO2", 5, "MANT & PLANIF CONC QUINTO MOLINO", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "90 CICLOS", 90, "Ciclos", null, "CCOA3RMM", "P.T. Resp.", "CO3", 5, "MANT & PLANIF MEC CONC PEBBLES & ESCORIA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "96 Semanas", 96, "Semanas", null, "CCOAFRME", "P.T. Resp.", "CO0", 5, "MANT & PLANIF ELEC CONC A0-A1-FRA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "99000 TON", 99000, "Ton.", null, "CCOARRME", "P.T. Resp.", "CO0", 5, "INSP & PLANIF ELEC CONC A0-A1-FRA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Cada 1 mes calendario", 4, "Semanas", null, "CCOARRMM", "P.T. Resp.", "CO0", 5, "INSP & PLANIF MECANICO CONC A0-A1", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "MANT. CADA 12 MESES (ANUAL)", 52, "Semanas", null, "CCOAXRME", "P.T. Resp.", "CO2", 5, "MANT & PLANIF ELEC CONC MOLIENDA A2 A3", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "MANT. CADA 6 MESES (SEMESTRAL)", 26, "Semanas", null, "CCOAXRMI", "P.T. Resp.", "CO2", 5, "MANT & PLANIF INSTRUMENT A2/A3/A0/A1/FRA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/1 Día", 1, "Días", null, "CCOCHRME", "P.T. Resp.", "COC", 5, "MANT & PLANIF ELECTRICO CONC CHANC S-T", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/11 Meses", 44, "Semanas", null, "CCOCHRMI", "P.T. Resp.", "COC", 5, "MANT & PLANIF INSTRUMENTACIÓN CHANC S-T", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/2 Dias", 2, "Días", null, "CCOCHRMM", "P.T. Resp.", "COC", 5, "MANT & PLANIF MECANICO CONC CHANC S-T", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/5 Años", 260, "Semanas", null, "CCOCPRMM", "P.T. Resp.", "C10", 5, "MANT & PLANIF MANTENIMIENTO CHP CONC", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/7 Meses", 28, "Semanas", null, "CCOFLRME", "P.T. Resp.", "CFT", 5, "MANT & PLANIF ELEC CONC FILTROS", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención cada 2 semanas", 2, "Semanas", null, "CCOFLRMM", "P.T. Resp.", "CFT", 5, "MANT & PLANIF MEC CONC FILTROS", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención cada 4 semanas", 4, "Semanas", null, "CCOFLRMX", "P.T. Resp.", "CFL", 5, "INSP & PLANIF MEC CONC FLOTACION", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención cada 8 semanas", 8, "Semanas", null, "CCOFRRMM", "P.T. Resp.", "CFL", 5, "MANT & PLANIF MEC/LUB CONCO FLOTA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "MANTENCION SEMANAL", 1, "Semanas", null, "CCOMFRME", "P.T. Resp.", "CML", 5, "INSP & PLANIF ELEC CONC MOLYFILT", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mtto General (Cada 120000 Ton)", 120000, "Ton.", null, "CCOMFRMI", "P.T. Resp.", "CML", 5, "MANT & PLANIF INSTRUMENT. CONC MOLYFILT", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mtto General (Cada 99000 Ton)", 99000, "Ton.", null, "CCOMFRMM", "P.T. Resp.", "CML", 5, "INSP & PLANIF MEC CONC MOLYFILT", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mtto Parcial (Cada 40000 Ton)", 40000, "Ton.", null, "CCOMORME", "P.T. Resp.", "CML", 5, "MANT & PLANIF ELEC CONC MOLIB", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mtto Parcial 2 (Cada 66000 Ton", 66000, "Ton.", null, "CCOMORMM", "P.T. Resp.", "CML", 5, "MANT & PLANIF MEC CONC MOLIB", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mtto Parcial 2 (Cada 80000 Ton", 80000, "Ton.", null, "CCORARMM", "P.T. Resp.", "CFL", 5, "MANT & PLANIF MEC/LUB CONC RDA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "PAUTA DE  8 MESES", 32, "Semanas", null, "CCORMRMM", "P.T. Resp.", "CFL", 5, "MANT & PLANIF MEC/LUB CONC REMO", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "PAUTA TRIMESTRAL", 16, "Semanas", null, "CGSSXM01", "Antiguo", null, null, "SERV EXT MEC CALDERAS & COMPRESORES", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "RCT", null, "RCT", null, "CGSSXN01", "Antiguo", null, null, "SERV EXT INSPECCION TECNICA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "RCTA", null, "RCTA", null, "MA3CM209", "Antiguo", null, null, "IM. MECANICOS  FLOTACION / REC. AGUA", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "RG", null, "RG", null, "CGSSPM01", "Antiguo", null, null, "SERV INT MEC CALDERAS & COMPRESORES", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "RP", null, "RP", null, "MA1CS402", "Antiguo", null, null, "Mantenimiento Sintomático", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Mantención c/48 Semanas", 48, "Semanas", null, "CGSMPI01", "Antiguo", null, null, "MANTENCION INSTRUMENTISTAS", null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "MTTO CADA 6 SEMANAS", 6, "Semanas", null, "CGSMXM05", null, "C70", null, "MTTO EXTERNO SERCOING TRANSVERSAL", "SERCOING", null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "8 SEMANA", 8, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "36 SEMANAS", 36, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "240 SEM", 240, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "4 SEM", 4, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "48 SEM", 48, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "480 SEM", 480, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "720 SEM", 720, "Semanas", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Cada 1000 horas de Actividad", 1000, "Hrs.", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Cada 2000 horas de Actividad", 2000, "Hrs.", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Cada 250 horas de Actividad", 250, "Hrs.", null, null, null, null, null, null, null, null, null, null, null, null, null, null], [null, null, null, null, null, null, null, "Cada 500 horas de Actividad", 500, "Hrs.", null, null, null, null, null, null, null, null, null, null, null, null, null, null]];
+  function s(v) { return v == null ? '' : (v instanceof Date ? v : String(v).trim()); }
+  function t(v) { return v == null ? '' : String(v).trim(); }
+  function z(v) { return t(v).replace(/^0+(?=\d)/, ''); }
+  function num(v) { if (typeof v === 'number') return v; var x = t(v); if (x.indexOf(',') >= 0) x = x.replace(/\./g, '').replace(',', '.'); var n = parseFloat(x); return isFinite(n) ? n : 0; }
+  function h(v) { return t(v).replace(/\s+/g, ' ').toLowerCase(); }
+  function firstRow(aoa) { for (var i = 0; i < Math.min(aoa.length, 15); i++) if ((aoa[i] || []).some(function (v) { return t(v) !== ''; })) return i; return -1; }
+  /* Reconoce la transacción por sus encabezados (o por la forma de la lista, en IA10 y MAF) */
+  function detect(aoa) {
+    var r = firstRow(aoa); if (r < 0) return null;
+    var row = (aoa[r] || []).map(h), has = function (x) { return row.indexOf(x) >= 0; };
+    if (has('ubicación técnica') && has('denom.ubic.técnica')) return 'ih06';
+    if (has('posición mantenim.') && has('última orden')) return 'ip18';
+    if (has('plan mant.preventivo') && has('ctd.pos.mant.')) return 'ip16';
+    if (has('orden') && has('status de sistema') && (has('autor') || has('texto breve'))) return 'iw38';
+    var w = Math.max.apply(null, aoa.slice(0, 60).map(function (x) { return (x || []).length; }));
+    var b = aoa.slice(r, r + 40).some(function (x) { return t((x || [])[1]) && t((x || [])[4]) && t((x || [])[5]); });
+    if (b && w >= 34) return 'ia10';
+    if (b && w >= 11 && w <= 20) return 'maf';
+    return null;
+  }
+  function table(aoa) {
+    var r = firstRow(aoa), hd = (aoa[r] || []).map(t), out = [];
+    for (var i = r + 1; i < aoa.length; i++) { var a = aoa[i] || []; if (!a.some(function (v) { return t(v) !== ''; })) continue; var o = {}; hd.forEach(function (k, j) { if (k) o[k] = a[j]; }); out.push(o); }
+    return out;
+  }
+  var C = { B: 1, C: 2, D: 3, E: 4, F: 5, J: 9, K: 10, N: 13, S: 18, T: 19, AH: 33, AI: 34, AJ: 35, AK: 36, AL: 37, AM: 38, AN: 39 };
+  function semFromNames(names) {
+    for (var i = 0; i < names.length; i++) { var m = t(names[i]).match(/(20\d\d)\s*[-_ ]?\s*S\s*(\d{1,2})/i); if (m) return m[1] + '/' + (m[2].length < 2 ? '0' : '') + m[2]; }
+    var d = new Date(), x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - day + 3);
+    var y = x.getUTCFullYear(), j4 = new Date(Date.UTC(y, 0, 4)), wk = 1 + Math.round(((x - j4) / 86400000 - 3 + ((j4.getUTCDay() + 6) % 7)) / 7);
+    return y + '/' + (wk < 10 ? '0' : '') + wk;
+  }
+
+  /* inputs: {ih06, ip16, ip18, ia10, maf?, iw38?} como aoa. Devuelve las hojas de la Torre (mismo formato que la S42/S45) */
+  function build(inp, names) {
+    var dr = DATOS || [], cyc = {}, pto = {}, pri = {}, tob = {}, tut = {};
+    dr.slice(2).forEach(function (r) {
+      if (t(r[7])) cyc[t(r[7])] = [r[8], t(r[9])];
+      if (t(r[11])) pto[t(r[11])] = [t(r[15]), t(r[12])];
+      if (t(r[1])) pri[t(r[1])] = t(r[2]);
+      if (t(r[4])) tob[t(r[4])] = t(r[5]);
+      if (t(r[19])) tut[t(r[19])] = t(r[20]);
+    });
+    function cy(ct) { return cyc[ct] || ['--', '--']; }
+    function pt(c, d) { return pto[c] || [d, d]; }
+    // IA10
+    var hojas = {}, order = [], ops = [], cur = null, last = null, mat = {};
+    (inp.ia10 || []).forEach(function (r) {
+      var g = function (c) { return C[c] < r.length ? t(r[C[c]]) : ''; };
+      if (g('B') && g('E')) { var k = z(g('B')) + '-' + z(g('E')); cur = k; last = null; if (!hojas[k]) order.push(k); hojas[k] = { gr: z(g('B')), cg: z(g('E')), txt: g('F'), estr: g('AH'), resp: g('AK'), inst: g('AM') }; }
+      else if (g('C') && g('F')) { last = { key: cur, op: g('F'), txt: g('K'), pt: g('AJ'), per: num(r[C.AL]), hrs: num(r[C.AN]), pk: [] }; ops.push(last); }
+      else if (g('D') && g('N') && g('T')) { if (last) last.pk.push([g('N'), g('T'), g('AI')]); }
+      else if (g('D') && g('S')) { (mat[cur] = mat[cur] || []).push(1); }
+    });
+    // MAF
+    var maf = {}, mafH = {}; cur = null; var lop = null;
+    (inp.maf || []).forEach(function (r) {
+      var g = function (i) { return i < r.length ? t(r[i]) : ''; };
+      if (g(1) && g(4)) { cur = z(g(1)) + '-' + z(g(4)); lop = null; }
+      else if (g(2) && g(5)) lop = cur + '-' + g(5);
+      else if (g(3) && lop && !r.some(function (v, i) { return i !== 3 && t(v) !== ''; })) { maf[lop] = 1; mafH[lop.split('-').slice(0, 2).join('-')] = 1; }
+    });
+    var ip16 = table(inp.ip16 || []), ip18 = table(inp.ip18 || []), ih = table(inp.ih06 || []), iw = inp.iw38 ? table(inp.iw38) : [];
+    var P16 = {}; ip16.forEach(function (x) { P16[z(x['Plan mant.preventivo'])] = x; });
+    var UT = {}; ih.forEach(function (x) { UT[t(x['Ubicación técnica'])] = x; });
+    var OT = {}; iw.forEach(function (x) { OT[z(x['Orden'])] = x; });
+    function stp(p) { return P16[p] ? t(P16[p]['Status de sistema']) : '--'; }
+    function autor(o) { return OT[o] ? t(OT[o]['Autor']) : ''; }
+    function auto(a) { return !a ? '' : a === 'S/I' ? 'S/I' : (/^\d{4}$/.test(a.slice(2, 6)) ? 'Auto' : 'Manual'); }
+    function neo3(x) { return ['MRT', 'MGA', 'PPL'].indexOf(t(x).slice(0, 3)) >= 0 ? 1 : 0; }
+    var hst = {}; ip18.forEach(function (x) { var k = z(x['Grupo hojas ruta']) + '-' + z(x['Cont.grupo HRuta']); (hst[k] = hst[k] || {})[stp(z(x['Plan mant.preventivo']))] = 1; });
+    function eh(k) { var v = hst[k] || {}; return v['ABIE'] ? 'Abierta' : v['ABIE NOAC'] ? 'No Act.' : v['PTBO NOAC'] ? 'PTBO' : 'N/A'; }
+    var byk = {}; ops.forEach(function (o) { (byk[o.key] = byk[o.key] || []).push(o); });
+    var S = {}, firstCtx = {}, firstPt = {};
+    var A = [['--', 'Gpo.hojas ruta', 'Cont.gpo.Hruta\nOpe.', 'Texto Breve\nDesc. Oper.', 'Estrategia', 'Estado Instalación', 'Paquete Mant.', 'Texto Ciclo', 'Pto. Trabajo Eje.', 'Cant. (Personas)', 'Horas', 'Cant.', 'Material\n(Cod. SAP)', 'Texto breve material', 'MAF', 'Material Hoja Ruta', 'Def. Puesto Trabajo', 'Estado\nPuesto Trabajo', 'Estado\nHoja Ruta', 'Neo Formato', 'Cant. Ciclo', 'Texto Ciclo', 'Un. Ciclo', 'Ciclo']];
+    order.forEach(function (k) {
+      var hj = hojas[k], cm = mat[k] ? 'Con Material' : '--', p0 = pt(hj.resp, '--');
+      A.push([k, hj.gr, hj.cg, hj.txt, hj.resp, hj.inst, null, null, hj.estr, null, null, null, null, null, mafH[k] ? 'Con MAF' : '--', cm, p0[0], p0[1], eh(k), neo3(hj.txt), null, null, null, null]);
+      (byk[k] || []).forEach(function (o) {
+        (o.pk.length ? o.pk : [['', '', '']]).forEach(function (pk) {
+          var c = cy(pk[1]), p1 = pt(o.pt, '--');
+          if (!(k in firstCtx)) firstCtx[k] = pk[1]; if (!(k in firstPt)) firstPt[k] = o.pt;
+          A.push([k, null, o.op, o.txt, o.pt, null, pk[0], pk[1], pk[2], o.per, o.hrs, null, null, null, maf[k + '-' + o.op] ? 'Con MAF' : '--', cm, p1[0], p1[1], eh(k), neo3(hj.txt), c[0], pk[1], c[1], c[0] !== '--' ? c[0] + ' ' + c[1] : '--']);
+        });
+      });
+    });
+    S['IA10'] = A;
+    // IP18 (P_V)
+    var B = [['Plan mant.prev.', 'Status sistema', 'Txt plan MT', 'Cl.actividad PM', 'Pos.mantenim.', 'TxtPosicManten', 'Ubicac.técnica', 'Denominación U.T.', 'Status sistema UT', 'Nivel', 'Indicador ABC', 'Pto.tbjo.resp.', 'Tiene Hoja Ruta', 'Tipo hoja ruta', 'Gpo.hojas ruta', 'Cont.gpo.HRuta', 'H&C', 'Texto Breve HdR', 'Texto Ciclo', 'Unid Ciclo', 'Ciclo', 'Estado Equipo', 'MAF', 'C/Material', 'Puesto Trab', 'Def. Puesto Trabajo', 'Estado', 'Estrategia', 'Tp.pl.manten.', 'Creado por', 'Creado el', 'Modificado por', 'Modificado el', 'Status', 'Tiene OT', 'Última orden', 'Autor', 'Automático', 'N° Tomas', 'Grupo planif.', 'Neo Formato']];
+    var cnt = {}, pcyc = {};
+    ip18.forEach(function (x) {
+      var p = z(x['Plan mant.preventivo']), ut = t(x['Ubicación técnica']), u = UT[ut] || {}, k = z(x['Grupo hojas ruta']) + '-' + z(x['Cont.grupo HRuta']), hj = hojas[k];
+      var ct = k in firstCtx ? firstCtx[k] : '--', c = cy(ct), p1 = firstPt[k] || '--', d1 = pt(p1, '-'), uo = z(x['Última orden']), au = autor(uo);
+      B.push([p, stp(p), P16[p] ? t(P16[p]['Txt plan mantenim.']) : '--', t(x['Clase actividad PM']), z(x['Posición mantenim.']), t(x['Txt.pos.mantenim.']), ut, t(u['Denom.ubic.técnica']), t(u['Status de sistema']), ut ? ut.split('-').length : '', t(u['Indicador ABC']), t(x['Pto.tbjo.responsable']), t(x['Grupo hojas ruta']) ? 'Si' : 'No', t(x['Tipo de hoja de ruta']), z(x['Grupo hojas ruta']), z(x['Cont.grupo HRuta']), k, hj ? hj.txt : '--', ct, (c[0] === '' || c[0] == null) ? '--' : c[0], c[1] || '--', hj ? (hj.inst === '0' ? 'Detenido' : 'Funcionado') : '--', mafH[k] ? 'Con MAF' : '--', mat[k] ? 'Con Material' : '--', p1, d1[0], d1[1], t(x['Estrategia mantenim.']), t(x['Tp.plan manten.']), t(x['Creado por']), s(x['Creado el']), t(x['Modificado por']), s(x['Modificado el']), t(x['Estado']), t(x['Última orden']) ? 'Si' : 'No', t(x['Última orden']), au, auto(au), P16[p] ? P16[p]['Ctd.pos.mant.'] : '-', t(x['Grupo planificación']), ['MRT ', 'MGA ', 'PPL '].indexOf(t(x['Txt.pos.mantenim.']).slice(0, 4)) >= 0 ? 1 : 0]);
+      var sp = stp(p), cc = cnt[ut] = cnt[ut] || [0, 0, 0];
+      if (sp === 'ABIE') cc[0]++; else if (sp === 'ABIE NOAC') cc[1]++; else if (sp === 'PTBO NOAC') cc[2]++;
+      var v = parseFloat(c[0]); if (isFinite(v) && (!(p in pcyc) || v < pcyc[p][0])) pcyc[p] = [v, c[1]];
+    });
+    S['IP18 (P_V)'] = B;
+    // IP16
+    var Cc = [['Plan mant.prev.', 'Txt plan MT', 'Ciclo', 'Status sistema', 'Modificado el', 'Modificado por', 'Creado el', 'Creado por', 'Estrategia', 'Intervalo toma', 'Ctd.posiciones', 'Número de toma', 'Horizonte-apert', 'Concl.retrasada', 'Tolerancia (+)', 'Concl.anticip.', 'Tolerancia (-)', 'Factor dilatac.', 'Neo Formato']];
+    ip16.forEach(function (x) {
+      var p = z(x['Plan mant.preventivo']), tx = t(x['Txt plan mantenim.']), pc = pcyc[p];
+      Cc.push([p, tx, pc ? pc[0] + ' ' + pc[1] : '', t(x['Status de sistema']), s(x['Modificado el']), t(x['Modificado por']), s(x['Creado el']), t(x['Creado por']), t(x['Estrategia mantenim.']), t(x['Intervalo de toma']), t(x['Ctd.pos.mant.']), x['Nº toma mant.'], t(x['Horizonte apertura']), t(x['Fact.dec.conclusión retr.']), t(x['Tolerancia (+)']), t(x['Fact.dec.concl.anticipada']), t(x['Tolerancia (-)']), x['Factor de dilatación'], ['MRT ', 'MGA ', 'PPL ', 'CAM '].indexOf(tx.slice(0, 4)) >= 0 ? 1 : 0]);
+    });
+    S['IP16 (IP16 PLANES)'] = Cc;
+    // IH06
+    var D = [['Ubicac.técnica', 'Denominación', 'Nivel', 'Status sistema', 'Emplazamiento', 'Pto.tbjo.resp.', 'Indicador ABC', 'Indicador ABC', 'Campo clasif.', 'Origen ind. ABC', 'Tp.objeto', 'Tipo', 'Centro coste', 'Puesto trabajo', 'Ind.estructura', 'Grupo planif.', 'Perfil catálogo', 'Centro planif.', 'Creado el', 'Creado por', 'Modificado el', 'Modificado por', 'Tipo ubic.técnica', 'Tipo U.T', 'Act', 'No Act', 'P. Borrados', 'Sin Plan']];
+    ih.forEach(function (x) {
+      var ut = t(x['Ubicación técnica']), c = cnt[ut] || [0, 0, 0], abc = t(x['Indicador ABC']), tp = t(x['Clase de objeto']), tu = t(x['Tipo ubic.técnica']);
+      D.push([ut, t(x['Denom.ubic.técnica']), ut.split('-').length, t(x['Status de sistema']), t(x['Emplazamiento']), t(x['Pto.tbjo.responsable']), abc, pri[abc] || '--', t(x['Campo clasificación']), t(x['Origen indicador ABC']), tp, tob[tp] || '--', t(x['Centro de coste']), t(x['Puesto de trabajo']), t(x['Indicador estructura']), t(x['Grupo planificación']), t(x['Perfil de catálogo']), t(x['Centro planificación']), s(x['Creado el']), t(x['Creado por']), s(x['Modificado el']), t(x['Modificado por']), tu, tut[tu] || '--', c[0], c[1], c[2], (c[0] + c[1] + c[2]) === 0 ? 1 : 0]);
+    });
+    S['IH06 (UT_fra)'] = D;
+    // MAF
+    var E = [['Gpo.hojas ruta', 'Cont.gpo.HRuta', 'Operación', '--', 'MAF', 'Documento', 'Materiales', 'Status', 'Hoja', 'Det']];
+    Object.keys(maf).sort().forEach(function (m) { var q = m.split('-'); E.push([q[0], q[1], q[2], m, '(falta en el export)', '(falta en el export)', '--', '--', q[0] + '-' + q[1], 'Con MAF']); });
+    S['MAF'] = E;
+    // OTs
+    var F = [['Orden', 'Autor', 'Status usuario', 'Status sistema', 'Texto breve', 'Aviso', 'Plan mant.preventivo', 'Ubicación técnica', 'Pto.tbjo.responsable']];
+    iw.forEach(function (x) { F.push([z(x['Orden']), t(x['Autor']), t(x['Status de usuario']), t(x['Status de sistema']), t(x['Texto breve']), t(x['Aviso']), z(x['Plan mant.preventivo']), t(x['Ubicación técnica']), t(x['Pto.tbjo.responsable'])]); });
+    S['OTs'] = F;
+    S['Datos'] = dr;
+    var sem = semFromNames(names || []);
+    return { sheets: S, sem: sem, fileName: 'Torre de control ' + sem.replace('/', 'S') + ' FRA.xlsx',
+      stats: { hojas: order.length, ops: ops.length, maf: Object.keys(maf).length, ip18: ip18.length, ip16: ip16.length, ih06: ih.length, ots: iw.length } };
+  }
+  var ORDER = ['IA10', 'IP18 (P_V)', 'IP16 (IP16 PLANES)', 'IH06 (UT_fra)', 'MAF', 'OTs', 'Datos'];
+  return { detect: detect, build: build, ORDER: ORDER, semFromNames: semFromNames };
+})();
+
+
 </script>
 <script>
 (function(){
@@ -1021,8 +1165,8 @@ function deleteWeek(id){
 function isTorreSheets(nm){return nm.some(function(n){return /ip18|ih06/i.test(n)})}
 function readFile(f){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){try{
   var u=new Uint8Array(r.result),nm=XLSX.read(u,{type:'array',bookSheets:true}).SheetNames;
-  if(isTorreSheets(nm)){var want=nm.filter(function(n){return Torre.WANT.test(n.split(' ')[0])||Torre.WANT.test(n)});res({torre:true,wb:XLSX.read(u,{type:'array',cellDates:true,sheets:want})})}
-  else res({torre:false,wb:XLSX.read(u,{type:'array',cellDates:true})});
+  if(isTorreSheets(nm)){var want=nm.filter(function(n){return Torre.WANT.test(n.split(' ')[0])||Torre.WANT.test(n)});res({torre:true,bytes:u,wb:XLSX.read(u,{type:'array',cellDates:true,sheets:want})})}
+  else res({torre:false,bytes:u,wb:XLSX.read(u,{type:'array',cellDates:true})});
 }catch(e){rej(e)}};r.onerror=function(){rej(r.error)};r.readAsArrayBuffer(f)})}
 function aoa(ws){return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''})}
 function handle(files){
@@ -1032,7 +1176,7 @@ function handle(files){
   Promise.all(list.map(function(f){return readFile(f).then(function(x){return{f:f,wb:x.wb,torre:x.torre}},function(){notes.push(f.name+': no se pudo leer como Excel.');return null})})).then(function(arr){
     arr.forEach(function(x){
       if(!x)return;var found=false;
-      if(x.torre){loadTorreWB(x.f.name,x.wb);return}
+      if(x.torre){loadTorreWB(x.f.name,x.wb,{bytes:x.bytes,name:x.f.name});return}
       x.wb.SheetNames.forEach(function(sn){
         var a=aoa(x.wb.Sheets[sn]);if(!a.length)return;
         try{
@@ -1383,38 +1527,130 @@ function openTorre(id){
     if(torreId===id){torre=t;crossCache={};rebuildIfOpen();renderTorre()}
   },function(){torreLoading=false;toast('No se pudo abrir la Torre guardada.');renderTorre()});
 }
-function saveTorre(id,t){
+/* Excel de la Torre: se guarda en partes (base64) para poder descargarlo después */
+var torreFiles={};
+function u8ToB64(u){var s='',CH=0x8000;for(var i=0;i<u.length;i+=CH)s+=String.fromCharCode.apply(null,u.subarray(i,i+CH));return btoa(s)}
+function b64ToU8(b){var s=atob(b),u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u}
+function saveTorreFile(id,file){
+  if(!db||!file||!file.bytes)return Promise.resolve(0);
+  var b=u8ToB64(file.bytes),parts=[];for(var i=0;i<b.length;i+=TCHUNK)parts.push(b.slice(i,i+TCHUNK));
+  var old=(torresMeta[id]&&torresMeta[id].xlsxParts)||0,p=Promise.resolve();
+  parts.forEach(function(s,i){p=p.then(function(){return db.doc('torres/'+id+'/xlsx/p'+i).set({i:i,s:s})})});
+  for(var k=parts.length;k<old;k++)(function(k){p=p.then(function(){return db.doc('torres/'+id+'/xlsx/p'+k).delete()})})(k);
+  return p.then(function(){return parts.length},function(){toast('La Torre se guardó, pero su Excel no cupo en el almacenamiento: descárgalo ahora para tenerlo.');return 0});
+}
+function getTorreFile(id){
+  if(torreFiles[id])return Promise.resolve(torreFiles[id]);
+  var m=torresMeta[id]||{},sem=m.sem||(torreLoaded[id]&&torreLoaded[id].sem)||'',name=m.xlsxName||m.file||('Torre de control '+sem.replace('/','S')+' FRA.xlsx');
+  var fromDb=(db&&m.xlsxParts)?db.collection('torres/'+id+'/xlsx').get().then(function(snap){
+    var parts=snap.docs.filter(function(d){return d.exists}).map(function(d){return d.data()}).sort(function(a,b){return a.i-b.i}).slice(0,m.xlsxParts);
+    if(parts.length!==m.xlsxParts)return null;return{bytes:b64ToU8(parts.map(function(x){return x.s}).join('')),name:name}}):Promise.resolve(null);
+  return fromDb.then(function(f){if(f)return f;
+    if(typeof fetch!=='function')return null;
+    return fetch('data/torres/'+id+'.xlsx',{cache:'no-cache'}).then(function(r){return r.ok?r.arrayBuffer():null}).then(function(ab){return ab?{bytes:new Uint8Array(ab),name:name}:null},function(){return null});
+  }).then(function(f){if(f)torreFiles[id]=f;return f},function(){return null});
+}
+function downloadTorre(id){
+  if(!id)return;
+  if(!downloads){toast('Descargar no está disponible en esta vista.');return}
+  toast('Preparando el Excel de la Torre…');
+  getTorreFile(id).then(function(f){
+    if(!f){toast('Esta Torre no tiene su Excel guardado. Vuelve a cargarla (Excel o transacciones) para poder descargarla.');return}
+    downloads.save({filename:f.name,data:new Blob([f.bytes])}).then(function(){toast('Excel guardado: '+f.name)},function(e){if(e&&e.code==='declined')return;toast(e&&e.code==='rate_limited'?'Ya hay una descarga pendiente de confirmar.':'No se pudo guardar el archivo.')});
+  });
+}
+function saveTorre(id,t,file){
   if(!db)return Promise.resolve(false);
   var js=JSON.stringify({sem:t.sem,file:t.file,ut:t.ut,pos:t.pos,planes:t.planes,ops:t.ops,hojas:t.hojas,ots:t.ots}),parts=[];
   for(var i=0;i<js.length;i+=TCHUNK)parts.push(js.slice(i,i+TCHUNK));
   var A=Torre.analyze(t),old=(torresMeta[id]&&torresMeta[id].nChunks)||0,p=Promise.resolve();
   parts.forEach(function(s,i){p=p.then(function(){return db.doc('torres/'+id+'/parts/p'+i).set({i:i,s:s})})});
   for(var k=parts.length;k<old;k++)(function(k){p=p.then(function(){return db.doc('torres/'+id+'/parts/p'+k).delete()})})(k);
-  return p.then(function(){return db.doc('torres/'+id).set({sem:t.sem,file:t.file,savedAt:new Date().toISOString(),nChunks:parts.length,
-    planes:A.kpi.planesAbiertos,posActivas:A.kpi.posActivas,hhSem:Math.round(A.kpi.hhSem)})}).then(function(){return true},function(e){
+  var xp=0;p=p.then(function(){return saveTorreFile(id,file).then(function(n){xp=n})});
+  return p.then(function(){var meta={sem:t.sem,file:t.file,savedAt:new Date().toISOString(),nChunks:parts.length,
+    planes:A.kpi.planesAbiertos,posActivas:A.kpi.posActivas,hhSem:Math.round(A.kpi.hhSem)};
+    if(xp){meta.xlsxParts=xp;meta.xlsxName=file.name}else if(torresMeta[id]&&torresMeta[id].xlsxParts&&!file){meta.xlsxParts=torresMeta[id].xlsxParts;meta.xlsxName=torresMeta[id].xlsxName}
+    return db.doc('torres/'+id).set(meta)}).then(function(){return true},function(e){
     toast(e&&e.code==='quota_exceeded'?'El almacenamiento está lleno. Elimina torres o semanas antiguas.':'No se pudo guardar la Torre. La ves igual, pero no quedó guardada.');return false});
 }
 function deleteTorre(id){
   var m=torresMeta[id];if(!db||!m)return;var p=Promise.resolve();
   for(var k=0;k<(m.nChunks||0);k++)(function(k){p=p.then(function(){return db.doc('torres/'+id+'/parts/p'+k).delete()})})(k);
+  for(var q=0;q<(m.xlsxParts||0);q++)(function(q){p=p.then(function(){return db.doc('torres/'+id+'/xlsx/p'+q).delete()})})(q);
+  delete torreFiles[id];
   p.then(function(){return db.doc('torres/'+id).delete()}).then(function(){delete torreLoaded[id];toast('Torre '+m.sem+' eliminada.')},function(){toast('No se pudo eliminar la Torre.')});
   torreId='';torre=null;tConfirmDel=false;rebuildIfOpen();
 }
 function isoWeekNow(){var d=new Date(),t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));var day=(t.getUTCDay()+6)%7;t.setUTCDate(t.getUTCDate()-day+3);var y=t.getUTCFullYear(),j4=new Date(Date.UTC(y,0,4));var w=1+Math.round(((t-j4)/86400000-3+((j4.getUTCDay()+6)%7))/7);return y+'/'+(w<10?'0':'')+w}
-function loadTorreWB(name,wb){
+function applyTorre(t,file){
+  if(!t.sem)t.sem=isoWeekNow();
+  var id=wid(t.sem);torreLoaded[id]=t;torreId=id;torre=t;crossCache={};if(file)torreFiles[id]=file;rebuildIfOpen();renderTorre();
+  var existed=!!torresMeta[id];
+  if(!db){toast('Torre '+t.sem+' cargada. No se pudo guardar en esta vista.');return id}
+  saveTorre(id,t,file).then(function(ok){if(ok)toast('Torre '+t.sem+(existed?' actualizada.':' guardada.')+' Las HH estimadas ya se aplican a la proyección.')});
+  return id;
+}
+function loadTorreWB(name,wb,file){
   try{
     var sheets=wb.SheetNames.filter(function(n){return wb.Sheets[n]}).map(function(n){return{name:n,aoa:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:''})}});
-    var t=Torre.build(sheets,name);if(!t.sem)t.sem=isoWeekNow();
-    var id=wid(t.sem);torreLoaded[id]=t;torreId=id;torre=t;crossCache={};rebuildIfOpen();renderTorre();
-    var existed=!!torresMeta[id];
-    if(!db){toast('Torre '+t.sem+' cargada. No se pudo guardar en esta vista.');return}
-    saveTorre(id,t).then(function(ok){if(ok)toast('Torre '+t.sem+(existed?' actualizada.':' guardada.')+' Las HH estimadas ya se aplican a la proyección.')});
+    applyTorre(Torre.build(sheets,name),file);
   }catch(e){$('tmsg').innerHTML='<div class="err">'+esc(name+': '+e.message)+'</div>'}
 }
-function handleTorreFiles(files){
-  var f=files&&files[0];if(!f)return;$('tmsg').innerHTML='<div class="sample-note">Leyendo '+esc(f.name)+'…</div>';
-  readFile(f).then(function(x){$('tmsg').innerHTML='';if(!x.torre){$('tmsg').innerHTML='<div class="err">'+esc(f.name)+': no encontré las hojas IP18 o IH06 de una Torre de control.</div>';return}loadTorreWB(f.name,x.wb)},function(){$('tmsg').innerHTML='<div class="err">'+esc(f.name)+': no se pudo leer como Excel.</div>'});
+/* Torre desde transacciones de SAP */
+var txPend={},txNames={};
+var TXREQ=[['ih06','IH06','Ubicaciones técnicas',1],['ip16','IP16','Planes',1],['ip18','IP18','Posiciones (con Última orden)',1],['ia10','IA10','Hojas de ruta (formato lista)',1],['iw38','IW38','Órdenes de la "Última orden"',1],['maf','MAF','Operaciones con MAF (opcional)',0]];
+function txReady(){return TXREQ.every(function(x){return!x[3]||txPend[x[0]]})}
+function renderTx(){
+  var any=Object.keys(txPend).length;$('txBox').hidden=!any;if(!any)return;
+  $('txSlots').innerHTML=TXREQ.map(function(x){var ok=!!txPend[x[0]];return'<div class="slot '+(ok?'ok':'miss')+'"><span class="dot"></span><b>'+x[1]+'</b><small>'+esc(ok?txNames[x[0]]:(x[3]?'Falta · ':'')+x[2])+'</small></div>'}).join('');
+  $('txBuild').disabled=!txReady();
 }
+function buildTorreTx(){
+  if(!txReady())return;
+  $('tmsg').innerHTML='<div class="sample-note">Armando la Torre de control con las transacciones… puede tardar unos segundos.</div>';
+  setTimeout(function(){
+    try{
+      var r=TorreTx.build(txPend,Object.keys(txNames).map(function(k){return txNames[k]}));
+      var wb=XLSX.utils.book_new();TorreTx.ORDER.forEach(function(n){XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(r.sheets[n],{cellDates:true}),n)});
+      var bytes=new Uint8Array(XLSX.write(wb,{bookType:'xlsx',type:'array',compression:true}));
+      var t=Torre.build(TorreTx.ORDER.map(function(n){return{name:n,aoa:r.sheets[n]}}),r.fileName);
+      var id=applyTorre(t,{bytes:bytes,name:r.fileName});
+      txPend={};txNames={};renderTx();
+      var st=r.stats;
+      $('tmsg').innerHTML='<div class="okmsg"><b>Torre '+esc(r.sem)+' armada.</b> '+fmt(st.ip18,0)+' posiciones, '+fmt(st.ip16,0)+' planes, '+fmt(st.hojas,0)+' hojas de ruta, '+fmt(st.ih06,0)+' ubicaciones y '+fmt(st.ots,0)+' órdenes. <button class="btn primary" type="button" data-tdl="'+esc(id)+'">Descargar '+esc(r.fileName)+'</button></div>';
+    }catch(e){$('tmsg').innerHTML='<div class="err">No se pudo armar la Torre: '+esc(e.message)+'</div>'}
+  },30);
+}
+function handleTorreFiles(files){
+  var list=[].slice.call(files||[]);if(!list.length)return;
+  $('tmsg').innerHTML='<div class="sample-note">Leyendo '+list.length+' archivo(s)…</div>';
+  var notes=[];
+  Promise.all(list.map(function(f){return readFile(f).then(function(x){return{f:f,x:x}},function(){notes.push(f.name+': no se pudo leer como Excel.');return null})})).then(function(arr){
+    var gotTx=false,seen={};
+    function addTx(role,a,name){
+      var cur=txPend[role];
+      if(seen[role]&&cur&&JSON.stringify(cur[0])===JSON.stringify(a[0])){
+        var keys={};cur.forEach(function(r){keys[JSON.stringify(r)]=1});
+        a.slice(1).forEach(function(r){var k=JSON.stringify(r);if(!keys[k]){keys[k]=1;cur.push(r)}});
+        txNames[role]+=' + '+name;
+      }else if(seen[role]&&cur&&cur.length>=a.length){return}
+      else{txPend[role]=a.slice();txNames[role]=name}
+      seen[role]=1;
+    }
+    arr.forEach(function(o){
+      if(!o)return;
+      if(o.x.torre){loadTorreWB(o.f.name,o.x.wb,{bytes:o.x.bytes,name:o.f.name});return}
+      var hit=false;
+      o.x.wb.SheetNames.forEach(function(sn){var a=aoa(o.x.wb.Sheets[sn]);var role=TorreTx.detect(a);if(role&&!hit){addTx(role,a,o.f.name);hit=true;gotTx=true}});
+      if(!hit)notes.push(o.f.name+': no lo reconocí como Torre ni como IH06, IP16, IP18, IA10, IW38 o MAF.');
+    });
+    $('tmsg').innerHTML=notes.length?'<div class="err">'+esc(notes.join(' '))+'</div>':'';
+    renderTx();
+    if(gotTx&&txReady())buildTorreTx();
+  });
+}
+$('txBuild').addEventListener('click',buildTorreTx);
+$('txClear').addEventListener('click',function(){txPend={};txNames={};renderTx();$('tmsg').innerHTML=''});
 (function(){var d=$('tdrop');
   ['dragenter','dragover'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.add('over')})});
   ['dragleave','drop'].forEach(function(e){d.addEventListener(e,function(ev){ev.preventDefault();d.classList.remove('over')})});
@@ -1447,7 +1683,8 @@ function renderTorre(){
   $('tState').textContent=!torresReady&&db?'Cargando torres guardadas…':!db?'El almacenamiento no está disponible: la Torre que cargues no se guardará.':ids.length?'La Torre seleccionada también entrega las HH estimadas de la proyección.':'';
   $('tList').innerHTML=ids.map(function(id){var m=torresMeta[id],t=torreLoaded[id],sem=m?m.sem:t.sem;
     return'<button type="button" class="wk" data-torre="'+esc(id)+'" aria-pressed="'+(id===torreId)+'"><b>Torre S'+esc(sem.split('/')[1]||sem)+'<span style="font-weight:600;font-size:13px;opacity:.8"> · '+esc(sem.split('/')[0]||'')+'</span></b><small>'+(m?fmt(m.planes,0)+' planes · '+fmt(m.hhSem,0)+' HH/sem':'sin guardar')+'</small></button>'}).join('')+'<button type="button" class="wk add" id="goTLoad">+ Cargar Torre</button>';
-  var a='';if(torreId&&torresMeta[torreId]){var m=torresMeta[torreId],sv=new Date(m.savedAt);a='<span class="muted">Guardada el '+sv.toLocaleDateString('es-CL')+' · '+esc(m.file||'')+'</span>'+(tConfirmDel?'<span>¿Eliminar la Torre '+esc(m.sem)+'? <button class="btn danger" type="button" id="tDelYes">Eliminar</button> <button class="linkbtn" type="button" id="tDelNo">Cancelar</button></span>':'<button class="linkbtn danger" type="button" id="tDel">Eliminar esta Torre</button>')}
+  var a='';if(torreId&&!torresMeta[torreId]&&torreLoaded[torreId])a='<button class="btn" type="button" data-tdl="'+esc(torreId)+'">Descargar Torre (Excel)</button>';
+  if(torreId&&torresMeta[torreId]){var m=torresMeta[torreId],sv=new Date(m.savedAt);a='<button class="btn" type="button" data-tdl="'+esc(torreId)+'">Descargar Torre (Excel)</button><span class="muted">Guardada el '+sv.toLocaleDateString('es-CL')+' · '+esc(m.file||'')+'</span>'+(tConfirmDel?'<span>¿Eliminar la Torre '+esc(m.sem)+'? <button class="btn danger" type="button" id="tDelYes">Eliminar</button> <button class="linkbtn" type="button" id="tDelNo">Cancelar</button></span>':'<button class="linkbtn danger" type="button" id="tDel">Eliminar esta Torre</button>')}
   $('tActions').innerHTML=a;
   var em=$('tEmpty');
   if(!torre){$('tBody').innerHTML='';$('tSearch').hidden=true;$('tKpis').hidden=true;em.hidden=false;em.innerHTML=(torreLoading||(!torresReady&&db))?'<p>Cargando la Torre de control…</p>':'<h2>Aún no hay una Torre de control cargada</h2><p>Arrastra el Excel de la Torre de control de Flotación en el panel de abajo. Con ella verás la salud del plan matriz y las HH estimadas por hoja de ruta en la proyección.</p>';return}
@@ -1589,6 +1826,7 @@ document.addEventListener('click',function(e){
   if((t=e.target.closest('.navb'))){setPage(t.dataset.page);return}
   if((t=e.target.closest('[data-torre]'))){var id=t.dataset.torre;if(id!==torreId)openTorre(id);return}
   if(e.target.closest('#goTLoad')){$('tdrop').scrollIntoView({behavior:'smooth'});return}
+  if((t=e.target.closest('[data-tdl]'))){downloadTorre(t.dataset.tdl);return}
   if(e.target.closest('#tDel')){tConfirmDel=true;renderTorre();return}
   if(e.target.closest('#tDelNo')){tConfirmDel=false;renderTorre();return}
   if(e.target.closest('#tDelYes')){deleteTorre(torreId);renderTorre();return}
