@@ -360,6 +360,7 @@ mark{background:var(--warn-soft);color:inherit;border-radius:3px;padding:0 1px;b
       <div class="sfields" role="group" aria-label="Buscar en">
         <span class="flabel">Buscar en</span>
         <button type="button" class="chip" data-tf="txt" aria-pressed="true">Txt plan MT</button>
+        <button type="button" class="chip" data-tf="plan" aria-pressed="false">N° de plan</button>
         <button type="button" class="chip" data-tf="ut" aria-pressed="false">Ubicación técnica</button>
         <button type="button" class="chip" data-tf="den" aria-pressed="false">Denominación UT</button>
         <button type="button" class="chip" data-tf="pt" aria-pressed="false">Puesto de trabajo</button>
@@ -1752,7 +1753,7 @@ function renderTorre(){
 }
 
 /* ---------- Torre: buscador de planes ---------- */
-var TF={txt:'Txt plan',ut:'Ubicación',den:'Denominación',pt:'Puesto',def:'Def. puesto',hr:'Hoja de ruta',all:'Todos'},tview='b',tField='txt',TS={terms:[],st:new Set()};
+var TF={txt:'Txt plan',ut:'Ubicación',den:'Denominación',pt:'Puesto',def:'Def. puesto',hr:'Hoja de ruta',plan:'N° plan',all:'Todos'},tview='b',tField='txt',TS={terms:[],st:new Set()};
 try{var _ts=JSON.parse(localStorage.getItem('torreBusqueda')||'null');if(_ts&&Array.isArray(_ts.terms))TS.terms=_ts.terms.filter(function(x){return x&&TF[x.f]&&x.v})}catch(e){}
 function saveTS(){try{localStorage.setItem('torreBusqueda',JSON.stringify({terms:TS.terms}))}catch(e){}}
 var P_=Torre.P;
@@ -1760,8 +1761,9 @@ function stOf(p){var s=p[P_.st]||'';return s==='ABIE'?'Activa':/PTBO/.test(s)?'P
 /* Hoja de ruta: "82114" = todos sus contadores; "82114-1" = solo ese; texto = busca en el nombre de la hoja */
 function hrNorm(v){var m=String(v).trim().match(/^0*(\d+)\s*(?:[-\s]\s*0*(\d+))?$/);return m?{g:m[1],c:m[2]||''}:null}
 function fHit(r,f,v){
+  if(f==='plan'){var pn=String(r.p[P_.plan]||'').replace(/^0+/,''),q=String(v).replace(/\s+/g,'').replace(/^0+/,'');return!!q&&pn.indexOf(q)>=0}
   if(f==='hr'){var n=hrNorm(v),k=String(r.p[P_.key]||'').split('-');if(n)return k[0]===n.g&&(!n.c||k[1]===n.c);return r.f.hr.indexOf(v)>=0}
-  if(f==='all')return r.f.txt.indexOf(v)>=0||r.f.ut.indexOf(v)>=0||r.f.den.indexOf(v)>=0||r.f.pt.indexOf(v)>=0||r.f.def.indexOf(v)>=0||fHit(r,'hr',v);
+  if(f==='all')return r.f.txt.indexOf(v)>=0||r.f.ut.indexOf(v)>=0||r.f.den.indexOf(v)>=0||r.f.pt.indexOf(v)>=0||r.f.def.indexOf(v)>=0||fHit(r,'hr',v)||fHit(r,'plan',v);
   return r.f[f].indexOf(v)>=0;
 }
 function tMatch(r,skipSt){
@@ -1780,7 +1782,7 @@ function renderSearch(){
   if(!torre)return;
   var all=Torre.searchRows(torre);
   document.querySelectorAll('[data-tf]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.tf===tField)});
-  $('tq').placeholder=tField==='hr'?'Ej.: 82114 o 82114-1, valvula musculo':tField==='ut'?'Ej.: CHCO-FL-RMO, BBA':tField==='den'?'Ej.: espesador, celda':tField==='pt'?'Ej.: CCOMXM28, CCOAXRMI':tField==='def'?'Ej.: ingenalse, skf, mecanico ext':'Ej.: bomba, bba';
+  $('tq').placeholder=tField==='plan'?'Ej.: 13001234 (sin ceros a la izquierda también sirve)':tField==='hr'?'Ej.: 82114 o 82114-1, valvula musculo':tField==='ut'?'Ej.: CHCO-FL-RMO, BBA':tField==='den'?'Ej.: espesador, celda':tField==='pt'?'Ej.: CCOMXM28, CCOAXRMI':tField==='def'?'Ej.: ingenalse, skf, mecanico ext':'Ej.: bomba, bba';
   $('tEmpRow').hidden=tField!=='def';
   if(tField==='def'){var ec={};all.forEach(function(r){var seen={};r.emps.forEach(function(e){if(!seen[e]){seen[e]=1;ec[e]=(ec[e]||0)+1}})});
     $('tEmp').innerHTML=Object.keys(ec).sort(function(a,b){return ec[b]-ec[a]}).map(function(e){var on=TS.terms.some(function(x){return x.f==='def'&&x.v===Core.fold(e)});return'<button type="button" class="chip" data-temp="'+esc(e)+'" aria-pressed="'+on+'">'+esc(e)+'<span class="n">'+ec[e]+'</span></button>'}).join('')}
@@ -1795,10 +1797,10 @@ function renderSearch(){
   var LIM=400,abcC={E:'p-bad',A:'p-warn',M:'p-info',B:'p-none'},stC={'Activa':'p-ok','Inactiva (NOAC)':'p-warn','Para borrar (PTBO)':'p-bad','Sin plan':'p-none'};
   $('tRes').innerHTML=(rs.length>LIM?'<div class="hint muted" style="padding:8px 12px;margin:0">Mostrando '+LIM+' de '+fmt(rs.length,0)+' posiciones. La descarga incluye todas.</div>':'')+
     '<table class="d"><thead><tr><th>Plan</th><th>Status</th><th>Txt plan MT</th><th>Posición</th><th>Ubicación técnica</th><th>Denominación UT</th><th>ABC</th><th>Pto. resp.</th><th>Puesto de trabajo (ejecutor)</th><th>Hoja de ruta</th><th>Ciclo</th><th>HH por ejecución</th><th>HH/sem</th><th>Última OT</th></tr></thead><tbody>'+
-    rs.slice(0,LIM).map(function(r){var p=r.p,s=stOf(p);return'<tr><td class="mono">'+esc(p[P_.plan]||'—')+'</td><td><span class="pill '+stC[s]+'">'+s+'</span></td><td>'+hlT(p[P_.txt],'txt')+'</td><td>'+hlT(p[P_.ptxt],'txt')+'</td><td class="mono">'+hlT(p[P_.ut],'ut')+'</td><td>'+hlT(p[P_.den],'den')+'</td><td>'+(p[P_.abc]?'<span class="pill '+(abcC[p[P_.abc]]||'p-none')+'">'+esc(p[P_.abc])+'</span>':'')+'</td><td class="mono">'+hlT(p[P_.pto],'pt')+'</td><td>'+(r.ejec.length?r.ejec.map(function(c,i){return'<span class="mono">'+hlT(c,'pt')+'</span>'+(r.defs[i]?'<br><span class="muted" style="font-size:11.5px">'+hlT(r.defs[i],'def')+(r.emps[i]?' · '+hlT(r.emps[i],'def'):'')+'</span>':'<br><span class="pill p-warn" style="font-size:10.5px">sin descripción</span>')}).join('<br>'):'—')+'</td><td class="mono">'+hlT(p[P_.key],'hr')+'</td><td>'+esc(p[P_.ctx])+'</td><td class="n">'+(r.hhExec==null?'—':fmt(r.hhExec,1))+'</td><td class="n">'+fmt(r.hhSem,2)+'</td><td class="mono">'+(p[P_.ot]?esc(p[P_.ult]):'<span class="pill p-warn">Nunca</span>')+'</td></tr>'}).join('')+'</tbody></table>';
+    rs.slice(0,LIM).map(function(r){var p=r.p,s=stOf(p);return'<tr><td class="mono">'+(p[P_.plan]?hlT(String(p[P_.plan]),'plan'):'—')+'</td><td><span class="pill '+stC[s]+'">'+s+'</span></td><td>'+hlT(p[P_.txt],'txt')+'</td><td>'+hlT(p[P_.ptxt],'txt')+'</td><td class="mono">'+hlT(p[P_.ut],'ut')+'</td><td>'+hlT(p[P_.den],'den')+'</td><td>'+(p[P_.abc]?'<span class="pill '+(abcC[p[P_.abc]]||'p-none')+'">'+esc(p[P_.abc])+'</span>':'')+'</td><td class="mono">'+hlT(p[P_.pto],'pt')+'</td><td>'+(r.ejec.length?r.ejec.map(function(c,i){return'<span class="mono">'+hlT(c,'pt')+'</span>'+(r.defs[i]?'<br><span class="muted" style="font-size:11.5px">'+hlT(r.defs[i],'def')+(r.emps[i]?' · '+hlT(r.emps[i],'def'):'')+'</span>':'<br><span class="pill p-warn" style="font-size:10.5px">sin descripción</span>')}).join('<br>'):'—')+'</td><td class="mono">'+hlT(p[P_.key],'hr')+'</td><td>'+esc(p[P_.ctx])+'</td><td class="n">'+(r.hhExec==null?'—':fmt(r.hhExec,1))+'</td><td class="n">'+fmt(r.hhSem,2)+'</td><td class="mono">'+(p[P_.ot]?esc(p[P_.ult]):'<span class="pill p-warn">Nunca</span>')+'</td></tr>'}).join('')+'</tbody></table>';
 }
 $('tTermForm').addEventListener('submit',function(e){e.preventDefault();
-  $('tq').value.split(/[,;]+/).forEach(function(p){var v=Core.fold(p).trim();if(tField==='hr'){var hn=hrNorm(v);if(hn)v=hn.g+(hn.c?'-'+hn.c:'')}if(v&&!TS.terms.some(function(x){return x.f===tField&&x.v===v}))TS.terms.push({f:tField,v:v})});
+  $('tq').value.split(/[,;]+/).forEach(function(p){var v=Core.fold(p).trim();if(tField==='hr'){var hn=hrNorm(v);if(hn)v=hn.g+(hn.c?'-'+hn.c:'')}if(tField==='plan')v=v.replace(/\s+/g,'').replace(/^0+(?=\d)/,'');if(v&&!TS.terms.some(function(x){return x.f===tField&&x.v===v}))TS.terms.push({f:tField,v:v})});
   $('tq').value='';saveTS();renderSearch()});
 $('tClear').addEventListener('click',function(){TS.terms=[];TS.st.clear();saveTS();renderSearch()});
 document.addEventListener('click',function(e){var t;
