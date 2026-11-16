@@ -765,6 +765,12 @@ var Torre = (function () {
     if (c.op < 0) c.op = H.row.findIndex(function (x) { return x.indexOf('cont.gpo') === 0; });
     if (c.txt < 0) c.txt = H.row.findIndex(function (x) { return x.indexOf('texto breve') === 0; });
     if (c.est < 0) c.est = H.row.findIndex(function (x) { return x.indexOf('estado') === 0 && x.indexOf('hoja') >= 0; });
+    /* El puesto ejecutor puede venir en "Estrategia" (Torres antiguas, columnas cruzadas) o en "Pto. Trabajo Eje.": se elige la columna con códigos de puesto (8 caracteres) */
+    var pe = H.row.findIndex(function (x) { return x.indexOf('pto. trabajo') === 0; });
+    if (pe >= 0 && pe !== c.pt) { var sE = 0, sP = 0, seen = 0;
+      for (var q = H.r + 1; q < aoa.length && seen < 400; q++) { var b = aoa[q] || []; if (s(b[c.gr]) || !s(b[c.op])) continue; seen++;
+        if (/^[A-Z0-9]{8}$/.test(s(b[c.pt]))) sE++; if (/^[A-Z0-9]{8}$/.test(s(b[pe]))) sP++; }
+      if (sP > sE) c.pt = pe; }
     var ops = [], hojas = {};
     for (var i = H.r + 1; i < aoa.length; i++) {
       var a = aoa[i] || [], k = key(a[c.k]); if (!k || k === '--' || k.indexOf('-') < 0) continue;
@@ -962,7 +968,7 @@ var TorreTx = (function () {
     if (has('orden') && has('status de sistema') && (has('autor') || has('texto breve'))) return 'iw38';
     var w = Math.max.apply(null, aoa.slice(0, 60).map(function (x) { return (x || []).length; }));
     var b = aoa.slice(r, r + 40).some(function (x) { return t((x || [])[1]) && t((x || [])[4]) && t((x || [])[5]); });
-    if (b && w >= 34) return 'ia10';
+    if (b && w >= 25 && aoa.slice(r, r + 60).some(function (x) { return t((x || [])[2]) && t((x || [])[5]); })) return 'ia10';
     if (b && w >= 11 && w <= 20) return 'maf';
     return null;
   }
@@ -979,6 +985,35 @@ var TorreTx = (function () {
     return y + '/' + (wk < 10 ? '0' : '') + wk;
   }
 
+  /* La IA10 sale de SAP como lista de ancho fijo: las columnas cambian según el área o la variante de pantalla.
+     Se calibra con las filas más frecuentes de cada tipo y se lleva todo al formato de referencia (el de Flotación). */
+  var REF = { H: [1, 4, 5, 33, 36, 38], O: [2, 5, 10, 35, 37, 39], K: [3, 9, 13, 19, 34], M: [3, 18] };
+  function normIA10(aoa) {
+    if (!aoa || !aoa.length) return aoa;
+    var cnt = { H: {}, O: {}, K: {}, M: {} };
+    aoa.forEach(function (r) {
+      var c = []; (r || []).forEach(function (v, i) { if (t(v) !== '') c.push(i); }); if (!c.length) return;
+      var ty = c[0] === 1 ? 'H' : c[0] === 2 ? 'O' : c[0] === 3 ? (c.length === REF.K.length ? 'K' : c.length === 2 ? 'M' : '') : '';
+      if (ty && c.length === REF[ty].length) { var k = c.join(','); cnt[ty][k] = (cnt[ty][k] || 0) + 1; }
+    });
+    var map = {}, same = true;
+    Object.keys(REF).forEach(function (ty) {
+      var best = null, n = 0; Object.keys(cnt[ty]).forEach(function (k) { if (cnt[ty][k] > n) { n = cnt[ty][k]; best = k; } });
+      var cols = best ? best.split(',').map(Number) : REF[ty], m = {}; cols.forEach(function (c, i) { m[c] = REF[ty][i]; });
+      if (cols.join() !== REF[ty].join()) same = false; map[ty] = { m: m, cols: cols };
+    });
+    if (same) return aoa;
+    var kN = map.K.cols[2], kT = map.K.cols[3], mS = map.M.cols[1];
+    return aoa.map(function (r) {
+      r = r || []; var first = -1; for (var i = 0; i < r.length; i++) if (t(r[i]) !== '') { first = i; break; }
+      var ty = first === 1 ? 'H' : first === 2 ? 'O' : first === 3 ? ((t(r[kN]) || t(r[kT])) ? 'K' : t(r[mS]) ? 'M' : '') : '';
+      var out = new Array(40).fill('');
+      if (!ty) { if (first >= 0) out[first] = r[first]; return out; }
+      var m = map[ty].m; r.forEach(function (v, i) { if (i in m) out[m[i]] = v; });
+      return out;
+    });
+  }
+
   /* inputs: {ih06, ip16, ip18, ia10, maf?, iw38?} como aoa. Devuelve las hojas de la Torre (mismo formato que la S42/S45) */
   function build(inp, names) {
     var dr = DATOS || [], cyc = {}, pto = {}, pri = {}, tob = {}, tut = {};
@@ -993,7 +1028,7 @@ var TorreTx = (function () {
     function pt(c, d) { return pto[c] || [d, d]; }
     // IA10
     var hojas = {}, order = [], ops = [], cur = null, last = null, mat = {};
-    (inp.ia10 || []).forEach(function (r) {
+    normIA10(inp.ia10 || []).forEach(function (r) {
       var g = function (c) { return C[c] < r.length ? t(r[C[c]]) : ''; };
       if (g('B') && g('E')) { var k = z(g('B')) + '-' + z(g('E')); cur = k; last = null; if (!hojas[k]) order.push(k); hojas[k] = { gr: z(g('B')), cg: z(g('E')), txt: g('F'), estr: g('AH'), resp: g('AK'), inst: g('AM') }; }
       else if (g('C') && g('F')) { last = { key: cur, op: g('F'), txt: g('K'), pt: g('AJ'), per: num(r[C.AL]), hrs: num(r[C.AN]), pk: [] }; ops.push(last); }
@@ -1023,12 +1058,12 @@ var TorreTx = (function () {
     var A = [['--', 'Gpo.hojas ruta', 'Cont.gpo.Hruta\nOpe.', 'Texto Breve\nDesc. Oper.', 'Estrategia', 'Estado Instalación', 'Paquete Mant.', 'Texto Ciclo', 'Pto. Trabajo Eje.', 'Cant. (Personas)', 'Horas', 'Cant.', 'Material\n(Cod. SAP)', 'Texto breve material', 'MAF', 'Material Hoja Ruta', 'Def. Puesto Trabajo', 'Estado\nPuesto Trabajo', 'Estado\nHoja Ruta', 'Neo Formato', 'Cant. Ciclo', 'Texto Ciclo', 'Un. Ciclo', 'Ciclo']];
     order.forEach(function (k) {
       var hj = hojas[k], cm = mat[k] ? 'Con Material' : '--', p0 = pt(hj.resp, '--');
-      A.push([k, hj.gr, hj.cg, hj.txt, hj.resp, hj.inst, null, null, hj.estr, null, null, null, null, null, mafH[k] ? 'Con MAF' : '--', cm, p0[0], p0[1], eh(k), neo3(hj.txt), null, null, null, null]);
+      A.push([k, hj.gr, hj.cg, hj.txt, hj.estr, hj.inst, null, null, hj.resp, null, null, null, null, null, mafH[k] ? 'Con MAF' : '--', cm, p0[0], p0[1], eh(k), neo3(hj.txt), null, null, null, null]);
       (byk[k] || []).forEach(function (o) {
         (o.pk.length ? o.pk : [['', '', '']]).forEach(function (pk) {
           var c = cy(pk[1]), p1 = pt(o.pt, '--');
           if (!(k in firstCtx)) firstCtx[k] = pk[1]; if (!(k in firstPt)) firstPt[k] = o.pt;
-          A.push([k, null, o.op, o.txt, o.pt, null, pk[0], pk[1], pk[2], o.per, o.hrs, null, null, null, maf[k + '-' + o.op] ? 'Con MAF' : '--', cm, p1[0], p1[1], eh(k), neo3(hj.txt), c[0], pk[1], c[1], c[0] !== '--' ? c[0] + ' ' + c[1] : '--']);
+          A.push([k, null, o.op, o.txt, pk[2], null, pk[0], pk[1], o.pt, o.per, o.hrs, null, null, null, maf[k + '-' + o.op] ? 'Con MAF' : '--', cm, p1[0], p1[1], eh(k), neo3(hj.txt), c[0], pk[1], c[1], c[0] !== '--' ? c[0] + ' ' + c[1] : '--']);
         });
       });
     });
@@ -1073,7 +1108,7 @@ var TorreTx = (function () {
       stats: { hojas: order.length, ops: ops.length, maf: Object.keys(maf).length, ip18: ip18.length, ip16: ip16.length, ih06: ih.length, ots: iw.length } };
   }
   var ORDER = ['IA10', 'IP18 (P_V)', 'IP16 (IP16 PLANES)', 'IH06 (UT_fra)', 'MAF', 'OTs', 'Datos'];
-  return { detect: detect, build: build, ORDER: ORDER, semFromNames: semFromNames };
+  return { normIA10: normIA10, detect: detect, build: build, ORDER: ORDER, semFromNames: semFromNames };
 })();
 
 
