@@ -1,0 +1,398 @@
+<title>Proyección Semana N-4</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: banda de carga arriba, resumen y filtros, luego carta Gantt semanal agrupada por puesto responsable */
+/* Paleta de marca (igual a Sala de Control Horómetros):
+   Naranjo 166C #E55302 · Dorado 130C #F4AA00 · Turquesa 320C #0098AA
+   Rojo 180C #C13832 · Burdeo 188C #7A2531 · Pizarra 432C #36424A · Arena 453C #C4C1A0 */
+:root{
+  --bg:#f6f4ef; --surface:#ffffff; --sunk:#efece1; --ink:#36424A; --muted:#5c6971; --line:rgba(54,66,74,0.14);
+  --accent:#E55302; --accent-text:#C24500; --accent-ink:#FFFFFF; --accent-soft:rgba(229,83,2,0.10);
+  --mec:#0098AA; --ele:#F4AA00; --ins:#7A2531; --otr:#C4C1A0;
+  --bad:#C13832; --bad-soft:rgba(193,56,50,0.11); --warn:#9C6A00; --warn-soft:rgba(244,170,0,0.20); --ok:#00707d; --ok-soft:rgba(0,152,170,0.12); --info:#5c6971; --info-soft:#efece1;
+  --shadow:0 1px 2px rgba(54,66,74,0.07),0 8px 24px -12px rgba(54,66,74,0.22);
+  --f-display:"Big Shoulders Display","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14181a; --surface:#1d2326; --sunk:#262c2c; --ink:#eef1f0; --muted:#b9c1c2; --line:rgba(255,255,255,0.09);
+  --accent:#F2712F; --accent-text:#F2712F; --accent-ink:#20100a; --accent-soft:rgba(242,113,47,0.16);
+  --mec:#2FBBCD; --ele:#F4AA00; --ins:#A85261; --otr:#8d8a71;
+  --bad:#E2564F; --bad-soft:rgba(226,86,79,0.16); --warn:#F4AA00; --warn-soft:rgba(244,170,0,0.18); --ok:#2FBBCD; --ok-soft:rgba(47,187,205,0.16); --info:#b9c1c2; --info-soft:#262c2c;
+  --shadow:0 1px 0 rgba(0,0,0,0.4),0 12px 28px -14px rgba(0,0,0,0.6);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181a; --surface:#1d2326; --sunk:#262c2c; --ink:#eef1f0; --muted:#b9c1c2; --line:rgba(255,255,255,0.09);
+  --accent:#F2712F; --accent-text:#F2712F; --accent-ink:#20100a; --accent-soft:rgba(242,113,47,0.16);
+  --mec:#2FBBCD; --ele:#F4AA00; --ins:#A85261; --otr:#8d8a71;
+  --bad:#E2564F; --bad-soft:rgba(226,86,79,0.16); --warn:#F4AA00; --warn-soft:rgba(244,170,0,0.18); --ok:#2FBBCD; --ok-soft:rgba(47,187,205,0.16); --info:#b9c1c2; --info-soft:#262c2c;
+  --shadow:0 1px 0 rgba(0,0,0,0.4),0 12px 28px -14px rgba(0,0,0,0.6);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1280px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;margin:0;text-wrap:balance}
+h1{font-size:clamp(30px,4vw,40px);font-weight:800;line-height:1}
+h2{border-left:4px solid var(--accent);padding-left:10px}
+h2{font-size:19px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+header.top .eyebrow{font-family:var(--f-mono);letter-spacing:.14em;color:var(--accent-text);font-weight:500}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.title-strip{height:6px;background:var(--accent)}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.weekchip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-weight:600}
+.weekchip select{font:inherit;background:transparent;border:0;color:inherit}
+
+/* Carga */
+.load{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:0}
+.drop{margin:14px;border:1.5px dashed var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;justify-content:center;background:var(--sunk);transition:border-color .15s,background .15s;cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{font-size:15px}
+.btn{font:inherit;font-weight:600;border-radius:7px;padding:8px 14px;border:1px solid var(--accent);background:var(--surface);color:var(--accent-text);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn:hover{filter:brightness(1.05)}
+.btn:focus-visible,.chip:focus-visible,.seg button:focus-visible,select:focus-visible,input:focus-visible,.drop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[disabled]{opacity:.5;cursor:default}
+.slots{padding:14px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.slot{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;align-items:start;padding:8px 10px;border-radius:7px;background:var(--sunk)}
+.slot .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--line);grid-row:span 2}
+.slot.ok .dot{background:var(--ok)}
+.slot.miss .dot{background:transparent;border:2px solid var(--muted)}
+.slot b{font-family:var(--f-mono);font-size:13px}
+.slot small{color:var(--muted);overflow-wrap:anywhere}
+.privacy{margin:0 14px 14px;font-size:12px;color:var(--ok);background:var(--ok-soft);border-radius:7px;padding:8px 10px}
+.err{margin:0 14px 14px;font-size:13px;color:var(--bad);background:var(--bad-soft);border-radius:7px;padding:8px 10px}
+.sample-note{margin:0 14px 14px;font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:7px;padding:8px 10px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.kpi{padding:12px 14px;display:flex;flex-direction:column;gap:2px;border-top:3px solid var(--accent)}
+.kpi .v{font-family:var(--f-display);font-size:32px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.kpi.alert{border-top-color:var(--bad)}
+.kpi.alert .v{color:var(--bad)}
+
+/* Filtros */
+.filters{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.frow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.flabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600;min-width:118px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 11px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.chip .n{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip[aria-pressed="true"] .n{color:inherit;opacity:.75}
+.sw{width:9px;height:9px;border-radius:2px;display:inline-block}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-weight:600;border:0;background:transparent;color:var(--muted);padding:7px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.search{font:inherit;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--surface);color:var(--ink);min-width:0;width:240px;max-width:100%}
+select.sel{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--surface);color:var(--ink)}
+.linkbtn{font:inherit;font-size:13px;border:0;background:none;color:var(--accent-text);cursor:pointer;padding:0;text-decoration:underline}
+
+/* Alertas */
+.alerts{display:flex;flex-direction:column;gap:6px}
+.alertrow{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-radius:8px;font-size:13px}
+.alertrow.bad{background:var(--bad-soft)}
+.alertrow.warn{background:var(--warn-soft)}
+.alertrow.info{background:var(--info-soft)}
+.alertrow b{white-space:nowrap}
+
+/* Carga diaria */
+.daily{padding:14px}
+.daily svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+
+/* Gantt */
+.gwrap{overflow:auto;border-top:1px solid var(--line);max-height:min(72vh,860px);overscroll-behavior:contain}
+table.g{border-collapse:separate;border-spacing:0;width:100%;min-width:900px;font-size:13px}
+table.g th,table.g td{border-bottom:1px solid var(--line);padding:0}
+table.g thead th{position:sticky;top:0;background:var(--surface);z-index:2;font-weight:600;text-align:center;padding:8px 4px;font-size:12px}
+table.g thead th .dn{display:block;font-family:var(--f-display);font-size:17px}
+table.g thead th.we{color:var(--muted);background:var(--sunk)}
+table.g thead th .dt{display:block;margin-top:3px;font-family:var(--f-mono);font-size:11.5px;font-weight:600;color:var(--accent-text)}
+table.g thead th{border-bottom:2px solid var(--line)}
+table.g th.first,table.g td.first{position:sticky;left:0;background:var(--surface);z-index:1;text-align:left;width:360px;min-width:280px;border-right:1px solid var(--line)}
+table.g thead th.first{z-index:3;padding-left:14px}
+tr.grp td{background:var(--sunk)}
+tr.grp td.first{background:var(--sunk);padding:8px 14px}
+tr.grp button{font:inherit;font-weight:700;border:0;background:none;color:var(--ink);cursor:pointer;display:inline-flex;gap:8px;align-items:center;padding:0}
+tr.grp .car{display:inline-block;transition:transform .15s;font-size:10px;color:var(--muted)}
+tr.grp.closed .car{transform:rotate(-90deg)}
+tr.grp td.sub{text-align:center;font-family:var(--f-mono);font-weight:500;font-size:12px;color:var(--muted)}
+td.first .pl{padding:7px 14px 7px 30px;display:flex;flex-direction:column;gap:3px}
+.pl .t{font-weight:500;overflow-wrap:anywhere}
+.pl .m{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:11.5px;color:var(--muted)}
+td.cell{text-align:center;padding:3px;width:76px;min-width:64px;vertical-align:middle}
+td.cell.wkend{background:var(--sunk)}
+.bar{display:flex;align-items:center;justify-content:center;height:30px;border-radius:5px;font-family:var(--f-mono);font-weight:500;font-size:12.5px;color:var(--ink)}
+.bar.dash{border:1.5px dashed var(--muted);color:var(--muted);font-family:var(--f-body);font-size:11px;background:transparent!important}
+td.tot{text-align:center;font-family:var(--f-mono);font-weight:600;width:72px;min-width:64px;border-left:1px solid var(--line)}
+tfoot td{background:var(--sunk);font-weight:700}
+tfoot td.first{background:var(--sunk);padding:10px 14px}
+tfoot td.cell{font-family:var(--f-mono)}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.p-bad{background:var(--bad-soft);color:var(--bad)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-info{background:var(--info-soft);color:var(--info)}
+.p-none{border:1px solid var(--line);color:var(--muted)}
+.alt{color:var(--warn);font-weight:600;cursor:help}
+
+/* Detalle */
+.dwrap{overflow-x:auto;border-top:1px solid var(--line);max-height:640px;overflow-y:auto}
+table.d{border-collapse:collapse;width:100%;min-width:1100px;font-size:12.5px}
+table.d th{position:sticky;top:0;background:var(--surface);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px;border-bottom:1px solid var(--line);z-index:1}
+table.d td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.d td.n{text-align:right;font-family:var(--f-mono)}
+.head{padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.empty{padding:28px 14px;color:var(--muted);text-align:center}
+footer{font-size:12px;color:var(--muted);text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--surface);padding:9px 16px;border-radius:8px;font-size:13px;z-index:20}
+
+
+#main{display:flex;flex-direction:column;gap:16px}
+.page{display:flex;flex-direction:column;gap:16px}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.navb{font:inherit;font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:.02em;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:8px;padding:8px 18px;cursor:pointer}
+.navb[aria-selected="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.navb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar.est{background:var(--bad-soft)!important;border:1.5px dashed var(--bad);color:var(--bad);font-weight:600}
+.bar.mix{flex-direction:column;line-height:1.05;gap:1px}
+.bar.mix small{color:var(--bad);font-size:10.5px;font-weight:600}
+.dt-est{display:block;font-family:var(--f-mono);font-size:10.5px;font-weight:600;color:var(--bad)}
+.kpi.est{border-top-color:var(--bad)}.kpi.est .v{color:var(--bad)}
+.tbody{display:flex;flex-direction:column;gap:16px}
+.tsec{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.tsec>p{margin:0;color:var(--muted);font-size:13px;max-width:90ch}
+.hb{display:grid;grid-template-columns:minmax(110px,170px) minmax(0,1fr) auto;gap:6px 10px;align-items:center;font-size:13px}
+.hb .lab{overflow-wrap:anywhere}
+.hb .trk{height:16px;background:var(--sunk);border-radius:4px;display:flex;overflow:hidden}
+.hb .seg{height:100%}
+.hb .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.hb .ref{grid-column:2;height:0;border-top:2px dashed var(--ink);margin-top:-12px;position:relative}
+.cmp{display:flex;flex-direction:column;gap:14px}
+.cmp-grp{display:flex;flex-direction:column;gap:5px}
+.cmp-grp h3{font-size:16px;display:flex;gap:8px;align-items:center}
+details.dq{border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+details.dq summary{cursor:pointer;padding:10px 12px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+details.dq summary::-webkit-details-marker{color:var(--muted)}
+details.dq .rtab{padding:0 12px 12px}
+.tview{align-self:flex-start}
+.sfields{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip.tterm b{font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.txbox{margin:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.txslots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.okmsg{margin:0 14px 14px;font-size:13px;color:var(--ok);background:var(--ok-soft);border-radius:7px;padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.okmsg b{color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.badge{display:inline-block;margin-left:6px;min-width:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:var(--surface);font-size:11px;line-height:18px;text-align:center;font-family:var(--f-mono)}
+.sumbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.rwrap{border-top:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:18px}
+.rsec{display:flex;flex-direction:column;gap:8px}
+.rsec h3{font-size:16px;display:flex;gap:8px;align-items:center}
+.rsec p{margin:0;font-size:12.5px;color:var(--muted);max-width:80ch}
+.rtab{overflow-x:auto}
+.rtab table{border-collapse:collapse;width:100%;min-width:640px;font-size:12.5px}
+.rtab th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+.rtab td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.ctx{position:sticky;top:env(safe-area-inset-top,0px);z-index:15;background:var(--bg);margin:0 -4px;padding:8px 4px 0;box-shadow:0 8px 10px -10px rgba(0,0,0,.35)}
+.ctx-in{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-bottom:8px}
+.ctx-wk{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.ctx-wk b{font-family:var(--f-display);font-size:22px;line-height:1}
+.ctx-f{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 200px;min-width:0}
+.ctx-f .pill{font-weight:500}
+.weeks{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.wk-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.wk-list{display:flex;flex-wrap:wrap;gap:8px}
+.wk{font:inherit;text-align:left;border:1px solid var(--line);background:var(--sunk);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px;min-width:140px}
+.wk b{font-family:var(--f-display);font-size:17px;line-height:1.1}
+.wk small{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+.wk[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.wk[aria-pressed="true"] small{color:inherit;opacity:.85}
+.wk.add{border-style:dashed;background:transparent;justify-content:center;color:var(--accent-text);font-weight:600}
+.wk:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wk-actions{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px}
+.wk-actions .danger{color:var(--bad)}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.tabs{display:flex;flex-wrap:wrap;gap:0;border-bottom:2px solid var(--line)}
+.tab{font:inherit;font-family:var(--f-display);font-size:17px;font-weight:700;border:0;background:transparent;color:var(--muted);padding:9px 16px 8px;margin-bottom:-2px;border-bottom:3px solid transparent;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.tab .n{font-family:var(--f-mono);font-size:12px;font-weight:500}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--tabc,var(--accent))}
+.termform{display:flex;gap:6px;min-width:0}
+.hint{font-size:12px;margin-top:-4px}
+.chip.term{background:var(--accent-soft);border-color:var(--accent-soft)}
+.chip.term .x{font-weight:700;color:var(--muted)}
+mark{background:var(--warn-soft);color:inherit;border-radius:3px;padding:0 1px;box-shadow:0 0 0 1px var(--warn)}
+.empty-state{padding:28px 20px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.empty-state p{margin:0;color:var(--muted);max-width:65ch}
+@media (max-width:980px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.load{grid-template-columns:minmax(0,1fr)}.slots{border-left:0;border-top:1px solid var(--line)}.flabel{min-width:0;width:100%}}
+@media (max-width:480px){.termform{width:100%}.wk{min-width:0;flex:1 1 130px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:25px}.search{width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="title-strip"></div>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Mantenimiento · Priorización SOMA N-4</div>
+      <h1>Proyección Semana N-4</h1>
+      <p>Arrastra la IP19, la IA10 y la IW38 tal como salen de SAP. La página arma especialidad, ciclo y estatus, y te muestra operaciones y HH por día para anticipar si la semana es ejecutable.</p>
+    </div>
+  </header>
+
+  <nav class="nav" role="tablist" aria-label="Secciones">
+    <button type="button" role="tab" class="navb" data-page="proy" aria-selected="true">Proyección N-4</button>
+    <button type="button" role="tab" class="navb" data-page="torre" aria-selected="false">Torre de control</button>
+  </nav>
+
+  <div id="pageProy" class="page">
+  <section class="panel weeks" aria-label="Semanas guardadas">
+    <div class="wk-head"><span class="eyebrow">Semanas guardadas</span><span class="muted" id="wkState" style="font-size:12px"></span></div>
+    <div class="wk-list" id="wkList"></div>
+    <div class="wk-actions" id="wkActions"></div>
+  </section>
+
+  <div class="ctx" id="ctx" hidden>
+    <div class="ctx-in">
+      <div class="ctx-wk"><span class="eyebrow">Semana en análisis</span><b id="ctxWeek">—</b><span class="mono muted" id="ctxRange"></span></div>
+      <div class="ctx-f" id="ctxFilters"></div>
+      <div class="seg" role="group" aria-label="Métrica">
+        <button type="button" id="m-op" aria-pressed="true">Operaciones</button>
+        <button type="button" id="m-hh" aria-pressed="false">HH</button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Especialidad" id="tabs"></div>
+  </div>
+  <div id="emptyState" class="panel empty-state" hidden></div>
+  <div id="main">
+
+
+  <section class="kpis" id="kpis" aria-label="Resumen"></section>
+  <section class="alerts" id="alerts" aria-label="Alertas"></section>
+
+  <section class="panel filters" aria-label="Filtros">
+    <div class="frow"><span class="flabel">Buscar en Txt plan</span>
+      <form id="termForm" class="termform"><input class="search" id="q" type="search" placeholder="Ej.: bomba" autocomplete="off"><button class="btn" type="submit">Agregar</button></form>
+      <div class="chips" id="terms"></div>
+    </div>
+    <div class="hint muted" id="termHint">Agrega uno o más términos (por ejemplo bomba, bba, bbas). Se muestran los planes cuyo Txt plan mantenim. contenga cualquiera de ellos, sin importar mayúsculas ni tildes.</div>
+    <div class="frow"><span class="flabel">Estatus material</span><div class="chips" id="f-mat"></div></div>
+    <div class="frow"><span class="flabel">Estatus del plan</span><div class="chips" id="f-stat"></div></div>
+    <div class="frow"><span class="flabel">Pto. responsable</span><div class="chips" id="f-pto"></div></div>
+    <div class="tools">
+      <button class="linkbtn" id="clear" type="button">Quitar filtros</button>
+      <button class="btn" id="dl" type="button">Descargar Excel de la semana</button>
+    </div>
+  </section>
+
+  <section class="panel daily" aria-label="Carga diaria">
+    <div class="head" style="padding:0 0 10px">
+      <div><h2 id="dailyTitle">Carga por día</h2><div class="legend" id="legend"></div></div>
+    </div>
+    <div id="dailyChart"></div>
+  </section>
+
+  <section class="panel" aria-label="Carta Gantt">
+    <div class="head">
+      <div><h2 id="gTitle">Carta Gantt de la semana</h2><div class="muted" style="font-size:12px" id="gSub"></div></div>
+      <div class="frow" style="gap:10px"><button class="linkbtn" type="button" id="foldAll">Plegar todo</button><button class="linkbtn" type="button" id="unfoldAll">Expandir todo</button>
+      <div class="seg" role="group" aria-label="Vista">
+        <button type="button" id="v-g" aria-pressed="true">Gantt</button>
+        <button type="button" id="v-d" aria-pressed="false">Detalle</button>
+        <button type="button" id="v-r" aria-pressed="false">Revisión<span class="badge" id="revBadge" hidden></span></button>
+      </div></div>
+    </div>
+    <div id="gantt" class="gwrap"></div>
+    <div id="detail" class="dwrap" hidden></div>
+    <div id="review" class="rwrap" hidden></div>
+  </section>
+  </div>
+
+  <section class="panel" aria-label="Carga de archivos" id="loader">
+    <div class="load">
+      <div>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Cargar archivos de SAP">
+          <strong>Cargar una semana: arrastra aquí los exports de SAP</strong>
+          <span class="muted">IP19, IA10 e IW38, juntos o de a uno. La página reconoce cuál es cuál y guarda la semana. También acepta una Proyección Semana ya armada (hojas Data e IA10). Formatos .xlsx y .xls.</span>
+          <span><button class="btn primary" id="pick" type="button">Seleccionar archivos</button></span>
+          <input type="file" id="file" accept=".xlsx,.xls,.xlsm" multiple hidden>
+        </div>
+        <div id="msg"></div>
+      </div>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="privacy" id="privacy">Los exports se leen en tu navegador. Cada semana cargada se guarda en el almacenamiento privado de esta página para que puedas volver a revisarla; solo la ven quienes tengan acceso al link.</div>
+  </section>
+
+  </div>
+
+  <div id="pageTorre" class="page" hidden>
+    <section class="panel weeks" aria-label="Torres guardadas">
+      <div class="wk-head"><span class="eyebrow">Torres de control guardadas</span><span class="muted" id="tState" style="font-size:12px"></span></div>
+      <div class="wk-list" id="tList"></div>
+      <div class="wk-actions" id="tActions"></div>
+    </section>
+    <div id="tEmpty" class="panel empty-state" hidden></div>
+    <section class="kpis" id="tKpis" aria-label="Indicadores de la Torre"></section>
+    <section class="panel tsec" id="tSearch" aria-label="Buscador de planes">
+      <h2>Buscador de planes</h2>
+      <div class="sfields" role="group" aria-label="Buscar en">
+        <span class="flabel">Buscar en</span>
+        <button type="button" class="chip" data-tf="txt" aria-pressed="true">Txt plan MT</button>
+        <button type="button" class="chip" data-tf="plan" aria-pressed="false">N° de plan</button>
+        <button type="button" class="chip" data-tf="eq" aria-pressed="false">Tipo de equipo</button>
+        <button type="button" class="chip" data-tf="ut" aria-pressed="false">Ubicación técnica</button>
+        <button type="button" class="chip" data-tf="den" aria-pressed="false">Denominación UT</button>
+        <button type="button" class="chip" data-tf="pt" aria-pressed="false">Puesto de trabajo</button>
+        <button type="button" class="chip" data-tf="def" aria-pressed="false">Def. Puesto Trabajo (empresa)</button>
+        <button type="button" class="chip" data-tf="hr" aria-pressed="false">Hoja de ruta</button>
+        <button type="button" class="chip" data-tf="all" aria-pressed="false">Todos los campos</button>
+      </div>
+      <form id="tTermForm" class="termform"><input class="search" id="tq" type="search" placeholder="Ej.: bomba, bba" autocomplete="off" style="width:320px"><button class="btn primary" type="submit">Agregar</button></form>
+      <div class="frow" id="tEmpRow" hidden><span class="flabel">Empresas</span><div class="chips" id="tEmp"></div></div>
+      <div class="chips" id="tTerms"></div>
+      <div class="hint muted">Agrega términos uno a uno o separados por coma. Dentro de un mismo campo se suman (bomba <b>o</b> bba); entre campos distintos se cruzan (bomba <b>y</b> ubicación CHCO-FL-RMO). Puesto de trabajo busca por código: el puesto responsable y los puestos que ejecutan la hoja de ruta (por ejemplo CCOMXM28). Def. Puesto Trabajo busca en la descripción del puesto y en la empresa ejecutora (por ejemplo Ingenalse, SKF o Berliam), según la tabla de puestos de Flotación; al elegirlo puedes tocar una empresa de la lista. Hoja de ruta busca por grupo (82114 trae todos sus contadores), por grupo y contador (82114-1) o por el texto de la hoja.</div>
+      <div class="frow"><span class="flabel">Status de la posición</span><div class="chips" id="tSt"></div></div>
+      <div class="tools"><div id="tSum" class="sumbar"></div><div class="frow" style="gap:12px"><button class="linkbtn" type="button" id="tClear">Quitar búsqueda</button><button class="btn" type="button" id="tDl">Descargar resultados</button></div></div>
+      <div id="tRes" class="dwrap"></div>
+    </section>
+    <div id="tBody" class="tbody"></div>
+    <section class="panel" aria-label="Cargar Torre de control">
+      <div class="drop" id="tdrop" tabindex="0" role="button" aria-label="Cargar Torre de control">
+        <strong>Cargar una Torre de control</strong>
+        <span class="muted">Arrastra el Excel de una Torre ya armada (por ejemplo Torre de control 2026S45 FRA.xlsx) <b>o las transacciones de SAP</b>: IH06, IP16, IP18, IA10, IW38 y MAF, juntas o de a una. Con las transacciones la página arma la Torre, actualiza el dashboard y te deja descargar el Excel. La semana se toma del nombre del archivo o, si no lo trae, de la semana actual.</span>
+        <span><button class="btn primary" id="tpick" type="button">Seleccionar archivo</button></span>
+        <input type="file" id="tfile" accept=".xlsx,.xlsm,.xls" multiple hidden>
+      </div>
+      <div id="tmsg"></div>
+      <div id="txBox" class="txbox" hidden>
+        <span class="eyebrow">Transacciones para armar la Torre</span>
+        <div class="txslots" id="txSlots"></div>
+        <div class="frow" style="gap:10px"><button class="btn primary" type="button" id="txBuild" disabled>Armar Torre</button><button class="linkbtn" type="button" id="txClear">Quitar transacciones</button></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Las HH estimadas (en rojo) salen de la hoja de ruta de la Torre de control: personas × horas de las operaciones del paquete cuyo ciclo coincide con el del plan. Especialidad según la última letra del Pto.tbjo.responsable (I, E, M). Ciclo por Grupo hoja de ruta + contador en la IA10 (primer ciclo encontrado, como BUSCARV). Estatus de material desde el status de sistema de la IW38: FMAT, KKMP, MACO.</footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/*CORE*/
+</script>
+<script>
+/*APP*/
+</script>
